@@ -126,12 +126,12 @@ The `using-bearpaws` skill is the intended bootstrap for the rest of the skills.
 
 ## Token efficiency
 
-Our aim is to mitigate token usage and enforce token efficiency while preserving practical skill-triggering usefulness. The numbers below are approximations from a single point-in-time measurement against the superpowers v5.0.7 fork point and will drift as either project changes — treat them as direction, not commitments.
+Our aim is to mitigate token usage and enforce token efficiency while preserving practical skill-triggering usefulness. The numbers below are point-in-time measurements against superpowers `main` and will drift as either project changes — treat them as direction, not commitments.
 
-| Metric | superpowers v5.0.7 | Bearpaws | Approx. delta |
+| Metric | superpowers (main) | Bearpaws | Approx. delta |
 |---|---:|---:|---|
-| Bootstrap injected per session | ~5.3 KB (~1.3K tokens) | ~5.2 KB (~1.3K tokens) | roughly comparable |
-| Process skill bodies (apples-to-apples subset) | ~108 KB (~27K tokens) | ~54 KB (~13K tokens) | roughly half |
+| Bootstrap injected per session | ~5.5 KB (~1.4K tokens) | ~5.2 KB (~1.2K tokens) | ~10% smaller |
+| Process skill bodies (apples-to-apples subset) | ~101 KB (~24K tokens) | ~51 KB (~12K tokens) | roughly half |
 
 Token counts measured with `tiktoken` `cl100k_base` as a proxy for Anthropic's tokenizer; treat them as ballpark figures, not exact savings. The bootstrap is paid every session; non-bootstrap skills load on demand through the target agent's skill mechanism, so the dominant cost is the bootstrap plus whatever skills the agent actually pulls in.
 
