@@ -91,7 +91,7 @@ Run: `tests/schema-validator/run-validator.sh`. Expected: three `OK:` lines, exi
 **Files:**
 - Modify: `tests/install/run-install-tests.sh`
 
-- [ ] **Step 1: Replace the Devin/Windsurf block**
+- [x] **Step 1: Replace the Devin/Windsurf block**
 
 Delete from `cp "$REPO_ROOT/install.sh"` through `echo "OK: Devin/Windsurf install reconciles existing skill directories"` and replace it with:
 
@@ -114,7 +114,7 @@ done
 echo "OK: no-flag and retired flags are rejected"
 ```
 
-- [ ] **Step 2: Rename the Codex block to `--agents` and assert the snippet**
+- [x] **Step 2: Rename the Codex block to `--agents` and assert the snippet**
 
 In the `# ========== Codex Installer Tests ==========` block:
 - `--codex` → `--agents` (both invocations)
@@ -129,7 +129,7 @@ Before that echo, add:
 grep -qF '"instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"]' "$TMP_ROOT/bearpaws-install-agents.log"
 ```
 
-- [ ] **Step 3: Run and verify FAIL**
+- [x] **Step 3: Run and verify FAIL**
 
 Run: `tests/install/run-install-tests.sh`
 Expected: `FAIL: install with no platform flag should exit non-zero`, because no flags still defaults to Devin + Windsurf.
@@ -141,9 +141,9 @@ Expected: `FAIL: install with no platform flag should exit non-zero`, because no
 **Files:**
 - Modify: `install.sh`
 
-- [ ] **Step 1: Delete `install_devin()` and `install_windsurf()`** (the whole functions, including their `# Install for ...` comments).
+- [x] **Step 1: Delete `install_devin()` and `install_windsurf()`** (the whole functions, including their `# Install for ...` comments).
 
-- [ ] **Step 2: Replace `install_codex()` with:**
+- [x] **Step 2: Replace `install_codex()` with:**
 
 ```bash
 # Install for Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, ...) via ~/.agents/skills
@@ -158,7 +158,7 @@ install_agents() {
 }
 ```
 
-- [ ] **Step 3: Replace the argument parser cases.** Remove the `--codex`, `--devin`, `--windsurf`, and `--all` cases, and add:
+- [x] **Step 3: Replace the argument parser cases.** Remove the `--codex`, `--devin`, `--windsurf`, and `--all` cases, and add:
 
 ```bash
             --agents)
@@ -167,7 +167,7 @@ install_agents() {
                 ;;
 ```
 
-- [ ] **Step 4: Replace the help text body with:**
+- [x] **Step 4: Replace the help text body with:**
 
 ```bash
                 echo "Bearpaws installation script"
@@ -181,7 +181,7 @@ install_agents() {
                 echo "  --help        Show this help message"
 ```
 
-- [ ] **Step 5: Make no flags an error.** Replace the `# Default to all platforms if none specified` block with:
+- [x] **Step 5: Make no flags an error.** Replace the `# Default to all platforms if none specified` block with:
 
 ```bash
     if [[ ${#platforms[@]} -eq 0 ]]; then
@@ -191,7 +191,7 @@ install_agents() {
     fi
 ```
 
-- [ ] **Step 6: Update the dispatch and next steps.** In the `case $platform` loop, replace the `codex)`, `devin)`, and `windsurf)` arms with:
+- [x] **Step 6: Update the dispatch and next steps.** In the `case $platform` loop, replace the `codex)`, `devin)`, and `windsurf)` arms with:
 
 ```bash
             agents)
@@ -214,13 +214,13 @@ Replace the Codex, Devin, and Windsurf "Next steps" blocks with:
 
 Update the header comment to `# Installs Bearpaws for Antigravity, and experimental ~/.agents/skills wiring for other Agent Skills agents`.
 
-- [ ] **Step 7: Verify PASS**
+- [x] **Step 7: Verify PASS**
 
 Run: `bash -n install.sh && tests/install/run-install-tests.sh`
 Expected: `OK: no-flag and retired flags are rejected`, the Antigravity OK line, and the Agents OK line; exit 0.
 Run: `git grep -n "codex\|devin\|windsurf" install.sh`. Expected: only the `install_agents` comment line.
 
-- [ ] **Step 8: Commit** — `feat(install): single --agents target; retire devin/windsurf wiring`
+- [x] **Step 8: Commit** — `feat(install): single --agents target; retire devin/windsurf wiring`
 
 ---
 
