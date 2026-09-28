@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bearpaws installation script
-# Installs Bearpaws for Antigravity, and experimental wiring for Codex, Devin for Terminal, and Windsurf Cascade
+# Installs Bearpaws for Antigravity, and experimental ~/.agents/skills wiring for other Agent Skills agents
 
 set -euo pipefail
 
@@ -79,45 +79,12 @@ create_symlinks() {
     log_success "Created $skills_created symlinks in $target_dir"
 }
 
-# Install for Devin for Terminal
-install_devin() {
-    log_info "Setting up experimental Devin for Terminal wiring..."
-    
-    # Project-level installation
-    create_symlinks "$BEARPAWS_ROOT/skills" "$BEARPAWS_ROOT/.devin/skills"
-    
-    # Global installation (optional)
-    if [[ "${INSTALL_GLOBAL:-}" == "true" ]]; then
-        log_info "Setting up global Devin installation..."
-        local global_devin="$HOME/.config/devin/skills"
-        create_symlinks "$BEARPAWS_ROOT/skills" "$global_devin"
-    fi
-}
-
-# Install for Windsurf Cascade
-install_windsurf() {
-    log_info "Setting up experimental Windsurf Cascade wiring..."
-    
-    # Create skills symlinks
-    create_symlinks "$BEARPAWS_ROOT/skills" "$BEARPAWS_ROOT/.windsurf/skills"
-    
-    # Ensure rules directory exists and bootstrap rule is in place
-    mkdir -p "$BEARPAWS_ROOT/.windsurf/rules"
-    
-    if [[ ! -f "$BEARPAWS_ROOT/.windsurf/rules/bearpaws.md" ]]; then
-        log_error "Bootstrap rule missing: .windsurf/rules/bearpaws.md"
-        return 1
-    fi
-    
-    log_success "Windsurf bootstrap rule is in place"
-}
-
-# Install for Codex (skills are read from ~/.agents/skills; this repo ships .agents/skills)
-install_codex() {
-    log_info "Setting up experimental Codex wiring..."
+# Install for Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, ...) via ~/.agents/skills
+install_agents() {
+    log_info "Setting up experimental Agent Skills wiring..."
     if [[ "${INSTALL_GLOBAL:-}" != "true" ]]; then
-        log_error "Codex installation currently requires --global"
-        log_info "Use: ./install.sh --codex --global"
+        log_error "Agents installation currently requires --global"
+        log_info "Use: ./install.sh --agents --global"
         return 1
     fi
     create_symlinks "$BEARPAWS_ROOT/skills" "$HOME/.agents/skills"
@@ -193,20 +160,8 @@ main() {
                 platforms+=("antigravity")
                 shift
                 ;;
-            --codex)
-                platforms+=("codex")
-                shift
-                ;;
-            --devin)
-                platforms+=("devin")
-                shift
-                ;;
-            --windsurf)
-                platforms+=("windsurf")
-                shift
-                ;;
-            --all)
-                platforms=("devin" "windsurf")
+            --agents)
+                platforms+=("agents")
                 shift
                 ;;
             --global)
@@ -216,24 +171,13 @@ main() {
             --help|-h)
                 echo "Bearpaws installation script"
                 echo ""
-                echo "Usage: $0 [OPTIONS]"
+                echo "Usage: $0 --antigravity --global | --agents --global"
                 echo ""
                 echo "Options:"
-                echo "  --antigravity Install BearPaws for Google Antigravity"
-                echo "  --codex       Install experimental Codex skills (requires --global)"
-                echo "  --devin       Install experimental Devin for Terminal wiring"
-                echo "  --windsurf    Install experimental Windsurf Cascade wiring"
-                echo "  --all         Install experimental wiring for Devin and Windsurf (default)"
-                echo "  --global      Install globally where supported (required for Antigravity and Codex)"
+                echo "  --antigravity Install BearPaws plugin for Google Antigravity"
+                echo "  --agents      Link skills into ~/.agents/skills (Codex, Devin, OpenCode, Cursor, Copilot, ...)"
+                echo "  --global      Required for both targets"
                 echo "  --help        Show this help message"
-                echo ""
-                echo "Examples:"
-                echo "  $0 --antigravity --global   # Install BearPaws plugin for Antigravity"
-                echo "  $0 --codex --global         # Install experimental Codex skills in ~/.agents/skills"
-                echo "  $0 --all                    # Install experimental wiring for both platforms"
-                echo "  $0 --devin                  # Install experimental Devin wiring only"
-                echo "  $0 --windsurf               # Install experimental Windsurf wiring only"
-                echo "  $0 --devin --global         # Install experimental Devin wiring globally too"
                 exit 0
                 ;;
             *)
@@ -244,9 +188,10 @@ main() {
         esac
     done
     
-    # Default to all platforms if none specified
     if [[ ${#platforms[@]} -eq 0 ]]; then
-        platforms=("devin" "windsurf")
+        log_error "No platform given"
+        echo "Use --help for usage information"
+        exit 1
     fi
     
     log_info "Installing for platforms: ${platforms[*]}"
@@ -260,18 +205,8 @@ main() {
                     ((++failed))
                 fi
                 ;;
-            codex)
-                if ! install_codex; then
-                    ((++failed))
-                fi
-                ;;
-            devin)
-                if ! install_devin; then
-                    ((++failed))
-                fi
-                ;;
-            windsurf)
-                if ! install_windsurf; then
+            agents)
+                if ! install_agents; then
                     ((++failed))
                 fi
                 ;;
@@ -291,19 +226,11 @@ main() {
             echo "  • Google Antigravity: Plugin installed in ~/.gemini/config/plugins/bearpaws/"
             echo "  • Restart Antigravity to discover skills and apply the bootstrap rule"
         fi
-        if [[ " ${platforms[*]} " =~ " codex " ]]; then
-            echo "  • Codex (experimental): Skills are now available in ~/.agents/skills/"
-            echo "  • Restart Codex; invoke with \$using-bearpaws or let descriptions trigger skills"
-        fi
-        if [[ " ${platforms[*]} " =~ " devin " ]]; then
-            echo "  • Devin for Terminal (experimental): Skills are now available in .devin/skills/"
-            if [[ "${INSTALL_GLOBAL:-}" == "true" ]]; then
-                echo "  • Global Devin (experimental): Skills are also available in ~/.config/devin/skills/"
-            fi
-        fi
-        if [[ " ${platforms[*]} " =~ " windsurf " ]]; then
-            echo "  • Windsurf Cascade (experimental): Skills are now available in .windsurf/skills/"
-            echo "  • Bootstrap rule: .windsurf/rules/bearpaws.md is present; verify activation in Windsurf"
+        if [[ " ${platforms[*]} " =~ " agents " ]]; then
+            echo "  • Agent Skills (experimental): Skills are now available in ~/.agents/skills/"
+            echo "  • Restart your agent; invoke using-bearpaws or let descriptions trigger skills"
+            echo "  • OpenCode bootstrap: add to ~/.config/opencode/opencode.json:"
+            echo '      "instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"]'
         fi
     else
         log_error "$failed platform installations failed"

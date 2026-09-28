@@ -9,19 +9,21 @@ WORK="$TMP_ROOT/bearpaws"
 mkdir -p "$WORK"
 
 cp "$REPO_ROOT/install.sh" "$WORK/install.sh"
-mkdir -p "$WORK/skills/alpha" "$WORK/skills/beta" "$WORK/skills/using-bearpaws" "$WORK/.windsurf/rules" "$WORK/.devin/skills" "$WORK/.windsurf/skills"
-touch "$WORK/skills/alpha/SKILL.md" "$WORK/skills/beta/SKILL.md" "$WORK/skills/using-bearpaws/SKILL.md" "$WORK/.windsurf/rules/bearpaws.md"
-ln -sfn "$WORK/skills/alpha" "$WORK/.devin/skills/alpha"
-ln -sfn "$WORK/skills/alpha" "$WORK/.windsurf/skills/alpha"
+mkdir -p "$WORK/skills/alpha" "$WORK/skills/beta" "$WORK/skills/using-bearpaws"
+touch "$WORK/skills/alpha/SKILL.md" "$WORK/skills/beta/SKILL.md" "$WORK/skills/using-bearpaws/SKILL.md"
 
-( cd "$WORK" && ./install.sh --all ) >/tmp/bearpaws-install-test.log 2>&1
+if ( cd "$WORK" && ./install.sh ) >/dev/null 2>&1; then
+  echo "FAIL: install with no platform flag should exit non-zero"
+  exit 1
+fi
+for retired in --devin --windsurf --all; do
+  if ( cd "$WORK" && ./install.sh "$retired" ) >/dev/null 2>&1; then
+    echo "FAIL: retired flag $retired should be rejected"
+    exit 1
+  fi
+done
 
-test -L "$WORK/.devin/skills/alpha"
-test -L "$WORK/.devin/skills/beta"
-test -L "$WORK/.windsurf/skills/alpha"
-test -L "$WORK/.windsurf/skills/beta"
-
-echo "OK: Devin/Windsurf install reconciles existing skill directories"
+echo "OK: no-flag and retired flags are rejected"
 
 # ========== Antigravity Installer Tests ==========
 TEST_HOME="$TMP_ROOT/home"
@@ -86,23 +88,25 @@ test ! -e "$PLUGIN/skills/alpha"
 
 echo "OK: Antigravity plugin installer (real files, idempotency, update reconciliation)"
 
-# ========== Codex Installer Tests ==========
-CODEX_HOME_DIR="$TMP_ROOT/codex-home"
-CODEX_SKILLS="$CODEX_HOME_DIR/.agents/skills"
-mkdir -p "$CODEX_SKILLS" "$TMP_ROOT/unrelated-skill"
-ln -s "$TMP_ROOT/unrelated-skill" "$CODEX_SKILLS/unrelated"
-ln -s "$TMP_ROOT/missing-skill" "$CODEX_SKILLS/broken"
+# ========== Agents Installer Tests ==========
+AGENTS_HOME_DIR="$TMP_ROOT/agents-home"
+AGENTS_SKILLS="$AGENTS_HOME_DIR/.agents/skills"
+mkdir -p "$AGENTS_SKILLS" "$TMP_ROOT/unrelated-skill"
+ln -s "$TMP_ROOT/unrelated-skill" "$AGENTS_SKILLS/unrelated"
+ln -s "$TMP_ROOT/missing-skill" "$AGENTS_SKILLS/broken"
 
-if ( cd "$WORK" && HOME="$CODEX_HOME_DIR" ./install.sh --codex ) >/dev/null 2>&1; then
-  echo "FAIL: install should require --global for codex"
+if ( cd "$WORK" && HOME="$AGENTS_HOME_DIR" ./install.sh --agents ) >/dev/null 2>&1; then
+  echo "FAIL: install should require --global for agents"
   exit 1
 fi
 
-( cd "$WORK" && HOME="$CODEX_HOME_DIR" ./install.sh --codex --global ) >"$TMP_ROOT/bearpaws-install-codex.log" 2>&1
+( cd "$WORK" && HOME="$AGENTS_HOME_DIR" ./install.sh --agents --global ) >"$TMP_ROOT/bearpaws-install-agents.log" 2>&1
 
-test -L "$CODEX_SKILLS/gamma"
-test -f "$CODEX_SKILLS/using-bearpaws/SKILL.md"
-test -L "$CODEX_SKILLS/unrelated"   # shared dir: valid foreign links survive
-test ! -L "$CODEX_SKILLS/broken"    # broken links are cleaned up
+test -L "$AGENTS_SKILLS/gamma"
+test -f "$AGENTS_SKILLS/using-bearpaws/SKILL.md"
+test -L "$AGENTS_SKILLS/unrelated"   # shared dir: valid foreign links survive
+test ! -L "$AGENTS_SKILLS/broken"    # broken links are cleaned up
 
-echo "OK: Codex installer (global skills, preserves unrelated skills)"
+grep -qF '"instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"]' "$TMP_ROOT/bearpaws-install-agents.log"
+
+echo "OK: Agents installer (global skills, preserves unrelated skills, OpenCode snippet)"
