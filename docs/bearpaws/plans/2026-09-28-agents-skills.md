@@ -31,7 +31,7 @@
 **Files:**
 - Modify: `tests/schema-validator/run-validator.sh` (insert after the `echo "OK: no schema violations in skills/"` line)
 
-- [ ] **Step 1: Write the failing check (a temporary fixture that should fail)**
+- [x] **Step 1: Write the failing check (a temporary fixture that should fail)**
 
 ```bash
 T=$(mktemp -d); mkdir -p "$T/tests/schema-validator" "$T/skills/good-skill" "$T/skills/Bad_Skill"
@@ -41,11 +41,11 @@ printf -- '---\nname: Bad_Skill\ndescription: Use when testing\n---\nbody\n' > "
 bash "$T/tests/schema-validator/run-validator.sh"; echo "exit=$?"
 ```
 
-- [ ] **Step 2: Run it and verify FAIL (no spec check yet)**
+- [x] **Step 2: Run it and verify FAIL (no spec check yet)**
 
 Expected: the output does NOT contain `SPEC VIOLATION: skills/Bad_Skill/SKILL.md`. It fails later on the missing gate files instead.
 
-- [ ] **Step 3: Implement the check**
+- [x] **Step 3: Implement the check**
 
 Insert after `echo "OK: no schema violations in skills/"`:
 
@@ -77,12 +77,12 @@ fi
 echo "OK: skills match the Agent Skills frontmatter spec"
 ```
 
-- [ ] **Step 4: Verify PASS on the fixture and the real repo**
+- [x] **Step 4: Verify PASS on the fixture and the real repo**
 
 Re-run the Step 1 fixture (after `cp` of the updated validator). Expected: `SPEC VIOLATION: skills/Bad_Skill/SKILL.md: name 'Bad_Skill' ...` and exit 1. Then run `rm -rf "$T"`.
 Run: `tests/schema-validator/run-validator.sh`. Expected: three `OK:` lines, exit 0.
 
-- [ ] **Step 5: Commit** — `feat(validator): enforce Agent Skills frontmatter spec`
+- [x] **Step 5: Commit** — `feat(validator): enforce Agent Skills frontmatter spec`
 
 ---
 
