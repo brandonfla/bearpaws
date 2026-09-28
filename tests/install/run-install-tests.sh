@@ -130,12 +130,17 @@ test ! -L "$AGENTS_SKILLS/broken"    # broken links are cleaned up
 test ! -L "$AGENTS_SKILLS/beta"
 test -f "$AGENTS_SKILLS/beta/mine.txt"
 test ! -e "$AGENTS_SKILLS/beta/beta"
-test -f "$AGENTS_SKILLS/delta" && test ! -L "$AGENTS_SKILLS/delta"
+test -f "$AGENTS_SKILLS/delta"
+test ! -L "$AGENTS_SKILLS/delta"
 grep -qx mine "$AGENTS_SKILLS/delta"
-[[ "$(readlink "$AGENTS_SKILLS/zeta")" == "$TMP_ROOT/unrelated-skill" ]]
+test "$(readlink "$AGENTS_SKILLS/zeta")" = "$TMP_ROOT/unrelated-skill"
 
 # Idempotency: our own links are refreshed, not skipped
-( cd "$WORK" && HOME="$AGENTS_HOME_DIR" ./install.sh --agents --global ) >>"$TMP_ROOT/bearpaws-install-agents.log" 2>&1
+out2="$( cd "$WORK" && HOME="$AGENTS_HOME_DIR" ./install.sh --agents --global 2>&1 )"
+if grep -qE 'Skipping (gamma|using-bearpaws)' <<<"$out2"; then
+  echo "FAIL: own links skipped on rerun"
+  exit 1
+fi
 test -L "$AGENTS_SKILLS/gamma"
 test -f "$AGENTS_SKILLS/gamma/SKILL.md"
 test -f "$AGENTS_SKILLS/using-bearpaws/SKILL.md"

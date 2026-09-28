@@ -129,7 +129,7 @@ install_antigravity() {
         log_error "Failed to create staging directory in $plugin_parent"
         return 1
     }
-    trap "rm -rf '$staging'" EXIT
+    trap "rm -rf $(printf %q "$staging")" EXIT
 
     mkdir -p "$staging/rules"
     mkdir -p "$staging/skills"
