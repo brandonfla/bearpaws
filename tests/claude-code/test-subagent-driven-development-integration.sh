@@ -149,7 +149,8 @@ Begin now. Execute the plan."
 
 echo "Running Claude (output will be shown below and saved to $OUTPUT_FILE)..."
 echo "================================================================================"
-cd "$SCRIPT_DIR/../.." && portable_timeout 1800 claude -p "$PROMPT" --allowed-tools=all --add-dir "$TEST_PROJECT" --permission-mode bypassPermissions 2>&1 | tee "$OUTPUT_FILE" || {
+SESSION_ID=$(uuidgen | tr "[:upper:]" "[:lower:]")
+cd "$SCRIPT_DIR/../.." && portable_timeout 1800 claude -p "$PROMPT" --session-id "$SESSION_ID" --allowed-tools=all --add-dir "$TEST_PROJECT" --permission-mode bypassPermissions 2>&1 | tee "$OUTPUT_FILE" || {
     echo ""
     echo "================================================================================"
     echo "EXECUTION FAILED (exit code: $?)"
@@ -163,13 +164,12 @@ echo ""
 
 # Find the session transcript
 # Session files are in ~/.claude/projects/-<working-dir>/<session-id>.jsonl
-WORKING_DIR_ESCAPED=$(echo "$SCRIPT_DIR/../.." | sed 's/\//-/g' | sed 's/^-//')
+# Claude Code maps every non-alphanumeric path character to "-"
+WORKING_DIR_ESCAPED=$(cd "$SCRIPT_DIR/../.." && pwd | sed 's/[^a-zA-Z0-9]/-/g')
 SESSION_DIR="$HOME/.claude/projects/$WORKING_DIR_ESCAPED"
+SESSION_FILE="$SESSION_DIR/$SESSION_ID.jsonl"
 
-# Find the most recent session file (created during this test run)
-SESSION_FILE=$(find "$SESSION_DIR" -name "*.jsonl" -type f -mmin -60 2>/dev/null | sort -r | head -1)
-
-if [ -z "$SESSION_FILE" ]; then
+if [ ! -f "$SESSION_FILE" ]; then
     echo "ERROR: Could not find session transcript file"
     echo "Looked in: $SESSION_DIR"
     exit 1
