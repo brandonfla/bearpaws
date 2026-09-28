@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SessionStart hook for bearpaws plugin
 # Platforms: Claude Code (CLAUDE_PLUGIN_ROOT), Cursor (CURSOR_PLUGIN_ROOT),
-#            Devin for Terminal (DEVIN_PROJECT_DIR), Copilot CLI (COPILOT_CLI),
+#            Devin CLI (DEVIN_PROJECT_DIR), Copilot CLI (COPILOT_CLI),
 #            and any SDK-standard platform (additionalContext).
 
 set -euo pipefail
@@ -57,7 +57,7 @@ elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
   # Claude Code sets CLAUDE_PLUGIN_ROOT without COPILOT_CLI
   printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
 elif [ -n "${DEVIN_PROJECT_DIR:-}" ]; then
-  # Devin for Terminal sets DEVIN_PROJECT_DIR; uses SDK-standard top-level additionalContext
+  # Devin CLI sets DEVIN_PROJECT_DIR; uses SDK-standard top-level additionalContext
   printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
 else
   # Copilot CLI (sets COPILOT_CLI=1) or unknown platform — SDK standard format

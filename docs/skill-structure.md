@@ -128,7 +128,7 @@ Some skill text names current agent tools or capabilities:
 
 - Claude Code: `Skill`, `Agent` (formerly `Task`), `Read`, `Write`, `Edit`, `Bash`. Progress tracking uses plan checkboxes; `TodoWrite`/`TaskCreate` are optional because current Claude models gate them off.
 - Google Antigravity capability mappings are documented in `skills/using-bearpaws/references/antigravity-tools.md`
-- Devin and Windsurf are described in the bootstrap as using a `skill` tool or slash command
+- Other Agent Skills agents (Codex, Devin, OpenCode, …) are described in the bootstrap by their native skill mechanism
 
 This language is part of the current skill behavior. Do not rewrite source skills just to make an adapter cleaner. If an agent needs different tool names, use an agent-specific wrapper or reference note where possible.
 

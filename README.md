@@ -2,7 +2,7 @@
 
 Bearpaws is an independent, low-token skills toolkit for AI coding agents, focused on portability, simplicity, and practical agent support. See [Attribution](#attribution) for the project's origin and license.
 
-Claude Code and Google Antigravity IDE are the primary supported targets. Codex, Devin for Terminal, and Windsurf Cascade support is experimental unless explicitly validated for a given workflow.
+Claude Code and Google Antigravity IDE are the primary supported targets. OpenCode and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless a specific workflow has been validated.
 
 **15 skills** covering TDD, debugging, planning, code review, parallel execution, plus a stack-agnostic onboarding skill. All skill bodies use a compact XML-like structure with lazy-loaded references.
 
@@ -24,9 +24,8 @@ flowchart TD
 |---|---|---|
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
-| Devin for Terminal | Experimental | Partial repo-local symlink and hook wiring |
-| Windsurf Cascade | Experimental | Partial repo-local symlink and rule wiring |
-| Codex | Experimental | Native `.agents/skills` discovery; `install.sh --codex --global` installer test |
+| OpenCode | Experimental | Native `.agents/skills` discovery + `instructions` bootstrap |
+| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Native `.agents/skills` discovery; `install.sh --agents --global` |
 
 See [docs/agent-support.md](docs/agent-support.md) for the current support policy and [docs/skill-structure.md](docs/skill-structure.md) for the descriptive skill structure contract.
 
@@ -84,56 +83,25 @@ rm -rf ~/.gemini/config/plugins/bearpaws
 
 BearPaws uses native Antigravity plugin packaging, rules, skills, and subagents — not Gemini CLI compatibility mode.
 
-## Experimental Install (Codex)
+## Experimental Install (OpenCode, Codex, Devin, Cursor, Copilot, …)
 
-Codex discovers Agent Skills natively and follows symlinks. This repo ships `.agents/skills -> skills`, so Codex sessions inside the checkout see every skill. To make Bearpaws available in every project:
-
-```bash
-./install.sh --codex --global
-```
-
-This links each skill into `~/.agents/skills/` without touching unrelated skills already there. Restart Codex, then run `$using-bearpaws` or `/skills` to confirm discovery. Codex has no Bearpaws session-start hook, so the bootstrap loads only when invoked or matched by its description.
-
-## Experimental Install (Devin for Terminal & Windsurf Cascade)
-
-These integrations are experimental. The script sets up the repo-local symlinks and bootstrap files Bearpaws currently uses for Devin and Windsurf, but behavior should be verified in the target agent before treating either integration as supported for critical work.
-
-**Quick install (recommended):**
+Most coding agents now read the shared Agent Skills folder `~/.agents/skills/`. One command links every Bearpaws skill there without touching unrelated skills:
 
 ```bash
-# Install for both platforms
-./install.sh --all
-
-# Or install for specific platforms
-./install.sh --devin      # Devin for Terminal only
-./install.sh --windsurf   # Windsurf Cascade only
-
-# Global installation for Devin (available in all projects)
-./install.sh --devin --global
+./install.sh --agents --global
 ```
 
-The install script reconciles repo-local skill symlinks for Devin and Windsurf, preserves Devin's hook wiring, supports optional global Devin symlinks with `--global`, and checks that the Windsurf bootstrap rule exists.
+Restart your agent and invoke `using-bearpaws` (`skill` tool in OpenCode, `$using-bearpaws` in Codex, `/using-bearpaws` in Devin CLI) to confirm discovery. This repo also ships `.agents/skills -> skills` for sessions inside the checkout. On Windows, that repo-local link needs git symlinks (`core.symlinks=true`, Developer Mode); otherwise use `./install.sh --agents --global`.
 
-**Manual install (if you prefer):**
+**OpenCode bootstrap:** add to `~/.config/opencode/opencode.json` so the bootstrap loads every session:
 
-For Devin for Terminal:
-```bash
-mkdir -p .devin/skills
-for skill in skills/*/; do
-  ln -sfn "$skill" ".devin/skills/$(basename "$skill")"
-done
+```json
+{ "instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"] }
 ```
 
-For Windsurf Cascade:
-```bash
-mkdir -p .windsurf/skills
-for skill in skills/*/; do
-  ln -sfn "$skill" ".windsurf/skills/$(basename "$skill")"
-done
-# Bootstrap activation is experimental; verify .windsurf/rules/bearpaws.md in Windsurf
-```
+Other agents load `using-bearpaws` when it is invoked or matched by its description. Devin CLI sessions in this repo also get it from `.devin/hooks.v1.json`.
 
-The `using-bearpaws` skill is the intended bootstrap for the rest of the skills. SessionStart hooks and rules are included for working in the bearpaws repo itself, but experimental agent activation should be verified in the target tool.
+The `using-bearpaws` skill is the intended bootstrap for the rest of the skills. Experimental agent activation should be verified in the target tool.
 
 ## Skills
 
