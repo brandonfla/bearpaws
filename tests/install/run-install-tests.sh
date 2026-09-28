@@ -85,3 +85,24 @@ test -f "$PLUGIN/skills/gamma/SKILL.md"
 test ! -e "$PLUGIN/skills/alpha"
 
 echo "OK: Antigravity plugin installer (real files, idempotency, update reconciliation)"
+
+# ========== Codex Installer Tests ==========
+CODEX_HOME_DIR="$TMP_ROOT/codex-home"
+CODEX_SKILLS="$CODEX_HOME_DIR/.agents/skills"
+mkdir -p "$CODEX_SKILLS" "$TMP_ROOT/unrelated-skill"
+ln -s "$TMP_ROOT/unrelated-skill" "$CODEX_SKILLS/unrelated"
+ln -s "$TMP_ROOT/missing-skill" "$CODEX_SKILLS/broken"
+
+if ( cd "$WORK" && HOME="$CODEX_HOME_DIR" ./install.sh --codex ) >/dev/null 2>&1; then
+  echo "FAIL: install should require --global for codex"
+  exit 1
+fi
+
+( cd "$WORK" && HOME="$CODEX_HOME_DIR" ./install.sh --codex --global ) >"$TMP_ROOT/bearpaws-install-codex.log" 2>&1
+
+test -L "$CODEX_SKILLS/gamma"
+test -f "$CODEX_SKILLS/using-bearpaws/SKILL.md"
+test -L "$CODEX_SKILLS/unrelated"   # shared dir: valid foreign links survive
+test ! -L "$CODEX_SKILLS/broken"    # broken links are cleaned up
+
+echo "OK: Codex installer (global skills, preserves unrelated skills)"

@@ -20,7 +20,7 @@ Current tiers:
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | Devin for Terminal | Experimental | Partial repo-local symlink and hook wiring |
 | Windsurf Cascade | Experimental | Partial repo-local symlink and rule wiring |
-| Codex | Experimental | No maintained install flow yet |
+| Codex | Experimental | Native `.agents/skills` discovery; `install.sh --codex --global` installer test |
 
 ## Claude Code
 
@@ -140,32 +140,39 @@ Risk:
 
 ## Codex
 
-Status: Experimental, currently no install flow.
+Status: Experimental.
 
 Existing files:
 
-- Incidental reference in `skills/brainstorming/visual-companion.md`
-- Incidental reference in `skills/writing-skills/SKILL.md`
+- `.agents/skills` (symlink to `skills/`) for repo-level discovery
+- `install.sh` (`--codex --global`)
+- `tests/install/run-install-tests.sh`
 
-Current install behavior:
+Install path:
 
-- None.
+```bash
+./install.sh --codex --global
+```
 
-Current support reality:
+How it works:
 
-- There is no Codex manifest, adapter, installer flag, or test suite.
-- The current skills may be useful to Codex as human-readable process docs, but Bearpaws does not currently provide a maintained Codex integration.
+- Codex discovers skills from `.agents/skills` (repo, walking up to the repo root) and `~/.agents/skills` (user), and follows symlinks.
+- `install.sh --codex --global` links each `skills/<name>/` into `~/.agents/skills/`, removing only broken links so unrelated skills survive.
+- Skills are invoked explicitly with `$skill-name` or `/skills`, or implicitly when a description matches.
 
-Minimum work before stronger claims:
+Evidence:
 
-- Decide where Bearpaws skills should live for Codex.
-- Document activation behavior.
-- Add a minimal placement or wrapper flow.
-- Validate at least bootstrap discovery and one non-bootstrap skill.
+- Installer test covers global linking, the `--global` requirement, and preservation of unrelated skills.
+
+Known limitations:
+
+- No Bearpaws session-start hook for Codex, so `using-bearpaws` loads only when invoked or matched by its description.
+- No real Codex behavior test.
+- Claude Code tool names in skills (`Agent`, `Skill`) have no Codex mapping reference yet.
 
 Risk:
 
-- Medium to high if promoted prematurely, because no current support surface exists.
+- Medium until bootstrap activation is verified in a real Codex session.
 
 ## Devin for Terminal
 
@@ -275,7 +282,7 @@ Minimum practical tests by tier:
 |---|---|
 | Claude Code | Existing trigger, explicit-request, schema, and selected workflow tests. |
 | Google Antigravity IDE | Real-file plugin install test, static adapter test, and manual promotion gates A–K. |
-| Codex | None until an integration is added. |
+| Codex | Global symlink install test plus manual activation proof before promotion. |
 | Devin for Terminal | Symlink install test plus manual or automated activation proof before promotion. |
 | Windsurf Cascade | Symlink install test plus manual or automated include/activation proof before promotion. |
 

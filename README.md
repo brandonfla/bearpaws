@@ -26,7 +26,7 @@ flowchart TD
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | Devin for Terminal | Experimental | Partial repo-local symlink and hook wiring |
 | Windsurf Cascade | Experimental | Partial repo-local symlink and rule wiring |
-| Codex | Experimental | No maintained install flow yet |
+| Codex | Experimental | Native `.agents/skills` discovery; `install.sh --codex --global` installer test |
 
 See [docs/agent-support.md](docs/agent-support.md) for the current support policy and [docs/skill-structure.md](docs/skill-structure.md) for the descriptive skill structure contract.
 
@@ -83,6 +83,16 @@ rm -rf ~/.gemini/config/plugins/bearpaws
 ```
 
 BearPaws uses native Antigravity plugin packaging, rules, skills, and subagents — not Gemini CLI compatibility mode.
+
+## Experimental Install (Codex)
+
+Codex discovers Agent Skills natively and follows symlinks. This repo ships `.agents/skills -> skills`, so Codex sessions inside the checkout see every skill. To make Bearpaws available in every project:
+
+```bash
+./install.sh --codex --global
+```
+
+This links each skill into `~/.agents/skills/` without touching unrelated skills already there. Restart Codex, then run `$using-bearpaws` or `/skills` to confirm discovery. Codex has no Bearpaws session-start hook, so the bootstrap loads only when invoked or matched by its description.
 
 ## Experimental Install (Devin for Terminal & Windsurf Cascade)
 

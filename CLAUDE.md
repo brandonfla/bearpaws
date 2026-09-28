@@ -19,10 +19,11 @@ Skills cover TDD, debugging, planning, code review, and parallel execution, plus
 - [.claude-plugin/](.claude-plugin/) — Claude Code plugin manifest and dev marketplace.
 - [.antigravity/](.antigravity/) — Google Antigravity IDE plugin manifest (`plugin.json`) and rules (`bearpaws.md`).
 - [.devin/](.devin/) — Devin for Terminal config: `hooks.v1.json` (SessionStart hook) and `skills/` (symlinks into `skills/`).
+- [.agents/skills](.agents/skills) — Codex repo-level skill discovery (symlink to `skills/`). `install.sh --codex --global` links skills into `~/.agents/skills/`.
 - [.windsurf/](.windsurf/) — Windsurf Cascade config: `rules/bearpaws.md` (always-on bootstrap rule) and `skills/` (symlinks into `skills/`).
 - [scripts/](scripts/) — version-bump tooling.
 - [tests/antigravity/](tests/antigravity/) — static adapter tests for Antigravity plugin integrity.
-- [tests/install/](tests/install/) — installer tests for Antigravity, Devin, and Windsurf.
+- [tests/install/](tests/install/) — installer tests for Antigravity, Codex, Devin, and Windsurf.
 - [tests/claude-code/](tests/claude-code/) — behavioral tests that shell out to the `claude` CLI.
 - [tests/skill-triggering/](tests/skill-triggering/) — naive-prompt tests that verify skills auto-trigger.
 - [docs/skill-structure.md](docs/skill-structure.md) — descriptive contract for current skill shape.
@@ -37,7 +38,7 @@ Skills cover TDD, debugging, planning, code review, and parallel execution, plus
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | Devin for Terminal | Experimental | Partial repo-local symlink and hook wiring |
 | Windsurf Cascade | Experimental | Partial repo-local symlink and rule wiring |
-| Codex | Experimental | No maintained install flow yet |
+| Codex | Experimental | Native `.agents/skills` discovery; `install.sh --codex --global` installer test |
 
 ## How the bootstrap works
 
@@ -79,7 +80,7 @@ Never hand-edit a version in one manifest — `--check` will flag the drift and 
 
 ```bash
 tests/schema-validator/run-validator.sh                                       # verify XML tag whitelist and adversarial gates
-tests/install/run-install-tests.sh                                            # verify Devin/Windsurf/Antigravity installer
+tests/install/run-install-tests.sh                                            # verify Codex/Devin/Windsurf/Antigravity installer
 tests/antigravity/run-adapter-tests.sh                                        # verify Antigravity adapter static assertions
 tests/claude-code/run-skill-tests.sh                                          # fast Claude skill-content tests (~2 min)
 tests/claude-code/run-skill-tests.sh --integration                            # full subagent-driven-dev run (10–30 min)

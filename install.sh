@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bearpaws installation script
-# Sets up experimental platform-specific symlinks for Devin for Terminal and Windsurf Cascade
+# Installs Bearpaws for Antigravity, and experimental wiring for Codex, Devin for Terminal, and Windsurf Cascade
 
 set -euo pipefail
 
@@ -49,19 +49,17 @@ create_symlinks() {
     if [[ -d "$target_dir" ]]; then
         log_warning "$target_dir already exists, checking existing symlinks..."
         
-        # Check if existing symlinks point to the right place
+        # Remove only broken symlinks; the target may be shared with other skills
         local broken_symlinks=0
         for skill in "$target_dir"/*; do
-            if [[ -L "$skill" ]]; then
-                if [[ ! -e "$skill" ]]; then
-                    ((broken_symlinks++))
-                fi
+            if [[ -L "$skill" && ! -e "$skill" ]]; then
+                rm "$skill"
+                ((++broken_symlinks))
             fi
         done
         
         if [[ $broken_symlinks -gt 0 ]]; then
-            log_warning "Found $broken_symlinks broken symlinks, removing them..."
-            find "$target_dir" -type l -delete 2>/dev/null || true
+            log_warning "Removed $broken_symlinks broken symlinks"
         else
             log_success "$target_dir symlinks already exist and are valid"
         fi
@@ -112,6 +110,17 @@ install_windsurf() {
     fi
     
     log_success "Windsurf bootstrap rule is in place"
+}
+
+# Install for Codex (skills are read from ~/.agents/skills; this repo ships .agents/skills)
+install_codex() {
+    log_info "Setting up experimental Codex wiring..."
+    if [[ "${INSTALL_GLOBAL:-}" != "true" ]]; then
+        log_error "Codex installation currently requires --global"
+        log_info "Use: ./install.sh --codex --global"
+        return 1
+    fi
+    create_symlinks "$BEARPAWS_ROOT/skills" "$HOME/.agents/skills"
 }
 
 # Install for Google Antigravity
@@ -184,6 +193,10 @@ main() {
                 platforms+=("antigravity")
                 shift
                 ;;
+            --codex)
+                platforms+=("codex")
+                shift
+                ;;
             --devin)
                 platforms+=("devin")
                 shift
@@ -207,14 +220,16 @@ main() {
                 echo ""
                 echo "Options:"
                 echo "  --antigravity Install BearPaws for Google Antigravity"
+                echo "  --codex       Install experimental Codex skills (requires --global)"
                 echo "  --devin       Install experimental Devin for Terminal wiring"
                 echo "  --windsurf    Install experimental Windsurf Cascade wiring"
                 echo "  --all         Install experimental wiring for Devin and Windsurf (default)"
-                echo "  --global      Install globally where supported (required for Antigravity)"
+                echo "  --global      Install globally where supported (required for Antigravity and Codex)"
                 echo "  --help        Show this help message"
                 echo ""
                 echo "Examples:"
                 echo "  $0 --antigravity --global   # Install BearPaws plugin for Antigravity"
+                echo "  $0 --codex --global         # Install experimental Codex skills in ~/.agents/skills"
                 echo "  $0 --all                    # Install experimental wiring for both platforms"
                 echo "  $0 --devin                  # Install experimental Devin wiring only"
                 echo "  $0 --windsurf               # Install experimental Windsurf wiring only"
@@ -242,22 +257,27 @@ main() {
         case $platform in
             antigravity)
                 if ! install_antigravity; then
-                    ((failed++))
+                    ((++failed))
+                fi
+                ;;
+            codex)
+                if ! install_codex; then
+                    ((++failed))
                 fi
                 ;;
             devin)
                 if ! install_devin; then
-                    ((failed++))
+                    ((++failed))
                 fi
                 ;;
             windsurf)
                 if ! install_windsurf; then
-                    ((failed++))
+                    ((++failed))
                 fi
                 ;;
             *)
                 log_error "Unknown platform: $platform"
-                ((failed++))
+                ((++failed))
                 ;;
         esac
     done
@@ -270,6 +290,10 @@ main() {
         if [[ " ${platforms[*]} " =~ " antigravity " ]]; then
             echo "  • Google Antigravity: Plugin installed in ~/.gemini/config/plugins/bearpaws/"
             echo "  • Restart Antigravity to discover skills and apply the bootstrap rule"
+        fi
+        if [[ " ${platforms[*]} " =~ " codex " ]]; then
+            echo "  • Codex (experimental): Skills are now available in ~/.agents/skills/"
+            echo "  • Restart Codex; invoke with \$using-bearpaws or let descriptions trigger skills"
         fi
         if [[ " ${platforms[*]} " =~ " devin " ]]; then
             echo "  • Devin for Terminal (experimental): Skills are now available in .devin/skills/"

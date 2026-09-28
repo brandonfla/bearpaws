@@ -126,7 +126,7 @@ Because the bootstrap teaches the conventions, it should be preserved especially
 
 Some skill text names current agent tools or capabilities:
 
-- Claude Code: `Skill`, `Task`, `TodoWrite`, `Read`, `Write`, `Edit`, `Bash`
+- Claude Code: `Skill`, `Agent` (formerly `Task`), `Read`, `Write`, `Edit`, `Bash`. Progress tracking uses plan checkboxes; `TodoWrite`/`TaskCreate` are optional because current Claude models gate them off.
 - Google Antigravity capability mappings are documented in `skills/using-bearpaws/references/antigravity-tools.md`
 - Devin and Windsurf are described in the bootstrap as using a `skill` tool or slash command
 
