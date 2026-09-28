@@ -271,7 +271,7 @@ Expected: validator OK lines, `ALL ANTIGRAVITY ADAPTER TESTS PASSED`, and `1`.
 **Files:**
 - Modify: `README.md`, `CLAUDE.md`, `docs/agent-support.md`, `docs/skill-structure.md`, `docs/bearpaws/release-notes/2.3.0.md`
 
-- [ ] **Step 1: Support table** (replace the Codex, Devin and Windsurf rows in README, CLAUDE.md, and `docs/agent-support.md`):
+- [x] **Step 1: Support table** (replace the Codex, Devin and Windsurf rows in README, CLAUDE.md, and `docs/agent-support.md`):
 
 ```markdown
 | OpenCode | Experimental | Native `.agents/skills` discovery + `instructions` bootstrap |
@@ -280,7 +280,7 @@ Expected: validator OK lines, `ALL ANTIGRAVITY ADAPTER TESTS PASSED`, and `1`.
 
 Intro sentence (README:5 and CLAUDE.md:9): `Claude Code and Google Antigravity IDE are the primary supported targets. OpenCode and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless a specific workflow has been validated.` Keep CLAUDE.md's trailing "Avoid adding language…" sentence.
 
-- [ ] **Step 2: README install sections.** Replace `## Experimental Install (Codex)` and `## Experimental Install (Devin for Terminal & Windsurf Cascade)`, through the paragraph ending "…verified in the target tool.", with:
+- [x] **Step 2: README install sections.** Replace `## Experimental Install (Codex)` and `## Experimental Install (Devin for Terminal & Windsurf Cascade)`, through the paragraph ending "…verified in the target tool.", with:
 
 ````markdown
 ## Experimental Install (OpenCode, Codex, Devin, Cursor, Copilot, …)
@@ -302,14 +302,14 @@ Restart your agent and invoke `using-bearpaws` (`skill` tool in OpenCode, `$usin
 Other agents load `using-bearpaws` when it is invoked or matched by its description. Devin for Terminal sessions in this repo also get it from `.devin/hooks.v1.json`.
 ````
 
-- [ ] **Step 3: CLAUDE.md layout.**
+- [x] **Step 3: CLAUDE.md layout.**
   - Replace the `.devin/` bullet with: `- [.devin/](.devin/) — Devin for Terminal \`hooks.v1.json\` (SessionStart hook). Skills come from \`.agents/skills\`.`
   - Delete the `.windsurf/` bullet.
   - Change the `.agents/skills` bullet to end with: `\`install.sh --agents --global\` links skills into \`~/.agents/skills/\` for Codex, Devin, OpenCode, Cursor, Copilot, and others.`
   - `tests/install/` bullet: `installer tests for Antigravity and Agent Skills (\`--agents\`).`
   - The test command comment: `# verify Antigravity and --agents installer`.
 
-- [ ] **Step 4: `docs/agent-support.md`.** Replace the `## Codex`, `## Devin for Terminal`, and `## Windsurf Cascade` sections with:
+- [x] **Step 4: `docs/agent-support.md`.** Replace the `## Codex`, `## Devin for Terminal`, and `## Windsurf Cascade` sections with:
 
 ```markdown
 ## OpenCode
@@ -336,9 +336,9 @@ Windsurf Cascade is retired: its docs now redirect to Devin, which reads `.agent
 
 Update the Testing Policy table: replace the Codex, Devin, and Windsurf rows with `| OpenCode | Spec validator + manual discovery smoke test. |` and `| Other Agent Skills agents | \`--agents\` installer test + manual activation proof before promotion. |`. Also update the tier table at the top (per Step 1).
 
-- [ ] **Step 5: `docs/skill-structure.md:131`** → `- Other Agent Skills agents (Codex, Devin, OpenCode, …) are described in the bootstrap by their native skill mechanism`
+- [x] **Step 5: `docs/skill-structure.md:131`** → `- Other Agent Skills agents (Codex, Devin, OpenCode, …) are described in the bootstrap by their native skill mechanism`
 
-- [ ] **Step 6: Release notes.** Append to `docs/bearpaws/release-notes/2.3.0.md`:
+- [x] **Step 6: Release notes.** Append to `docs/bearpaws/release-notes/2.3.0.md`:
 
 ```markdown
 
@@ -352,12 +352,12 @@ Update the Testing Policy table: replace the Codex, Devin, and Windsurf rows wit
 
 Also edit the existing Codex section in the same file: change `./install.sh --codex --global` to `./install.sh --agents --global`, and change `Added a Codex line to the using-bearpaws bootstrap` to `Codex is covered by the shared Agent Skills bootstrap line`.
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 Run: `git grep -n -i "windsurf\|--codex\|--devin\|install.sh --all" -- ':!docs/bearpaws/release-notes' ':!docs/bearpaws/plans'`
 Expected: only the "Windsurf Cascade is retired" line in `docs/agent-support.md`.
 
-- [ ] **Step 8: Commit** — `docs: agents target, OpenCode, retire Windsurf`
+- [x] **Step 8: Commit** — `docs: agents target, OpenCode, retire Windsurf`
 
 ---
 
