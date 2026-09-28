@@ -24,14 +24,6 @@ if [[ -f "$REPO_ROOT/skills/brainstorming/scripts/start-server.sh" ]]; then
   START_SCRIPT="$REPO_ROOT/skills/brainstorming/scripts/start-server.sh"
   STOP_SCRIPT="$REPO_ROOT/skills/brainstorming/scripts/stop-server.sh"
   SERVER_JS="$REPO_ROOT/skills/brainstorming/scripts/server.cjs"
-elif [[ -f "$REPO_ROOT/.devin/skills/brainstorming/scripts/start-server.sh" ]]; then
-  START_SCRIPT="$REPO_ROOT/.devin/skills/brainstorming/scripts/start-server.sh"
-  STOP_SCRIPT="$REPO_ROOT/.devin/skills/brainstorming/scripts/stop-server.sh"
-  SERVER_JS="$REPO_ROOT/.devin/skills/brainstorming/scripts/server.cjs"
-elif [[ -f "$REPO_ROOT/.windsurf/skills/brainstorming/scripts/start-server.sh" ]]; then
-  START_SCRIPT="$REPO_ROOT/.windsurf/skills/brainstorming/scripts/start-server.sh"
-  STOP_SCRIPT="$REPO_ROOT/.windsurf/skills/brainstorming/scripts/stop-server.sh"
-  SERVER_JS="$REPO_ROOT/.windsurf/skills/brainstorming/scripts/server.cjs"
 else
   echo "ERROR: Cannot find brainstorming scripts in any expected location"
   exit 1
