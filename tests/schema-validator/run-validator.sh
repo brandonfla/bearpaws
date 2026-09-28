@@ -71,6 +71,37 @@ fi
 
 echo "OK: skills match the Agent Skills frontmatter spec"
 
+# .agents/skills layout check: Codex ignores a symlinked skills directory, so
+# .agents/skills must be a real directory holding one symlink per skill.
+agents_violations=0
+if [[ -L .agents/skills ]] || [[ ! -d .agents/skills ]]; then
+  echo "AGENTS VIOLATION: .agents/skills must be a real directory, not a symlink"
+  agents_violations=$((agents_violations + 1))
+else
+  for d in skills/*/; do
+    n=$(basename "$d")
+    if [[ ! -L ".agents/skills/$n" ]] || [[ "$(cd ".agents/skills/$n" 2>/dev/null && pwd -P)" != "$(cd "skills/$n" && pwd -P)" ]]; then
+      echo "AGENTS VIOLATION: .agents/skills/${n} must be a symlink to skills/${n}"
+      agents_violations=$((agents_violations + 1))
+    fi
+  done
+  for e in .agents/skills/* .agents/skills/.[!.]*; do
+    [[ -e "$e" || -L "$e" ]] || continue
+    [[ -d "skills/$(basename "$e")" ]] || {
+      echo "AGENTS VIOLATION: ${e} has no matching skills/ directory"
+      agents_violations=$((agents_violations + 1))
+    }
+  done
+fi
+
+if [[ $agents_violations -gt 0 ]]; then
+  echo ""
+  echo "FAIL: ${agents_violations} .agents/skills violation(s)"
+  exit 1
+fi
+
+echo "OK: .agents/skills mirrors skills/ with per-skill links"
+
 # Adversarial gate check: ensure code-reviewer agent and dispatching skill stay aligned.
 # Both files must reference the same four gate names. A reformat that strips a gate
 # marker, or a rename in one file without the other, fails here.
