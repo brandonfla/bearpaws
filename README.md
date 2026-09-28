@@ -24,7 +24,7 @@ flowchart TD
 |---|---|---|
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
-| OpenCode | Experimental | Native `.agents/skills` discovery + `instructions` bootstrap |
+| OpenCode | Experimental | Smoke-tested: native `.agents/skills` discovery + `instructions` bootstrap |
 | Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Unverified beyond install test; relies on native `.agents/skills` discovery |
 
 See [docs/agent-support.md](docs/agent-support.md) for the current support policy and [docs/skill-structure.md](docs/skill-structure.md) for the descriptive skill structure contract.
@@ -106,6 +106,8 @@ Links point into your clone: `git pull` updates skills; moving or deleting the c
 ```bash
 find ~/.agents/skills -maxdepth 1 -lname "$PWD/skills/*" -delete
 ```
+
+And remove the `instructions` entry from your OpenCode config.
 
 ## Skills
 

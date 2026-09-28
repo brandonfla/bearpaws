@@ -18,7 +18,7 @@ Current tiers:
 |---|---|---|
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
-| OpenCode | Experimental | Native `.agents/skills` discovery + `instructions` bootstrap |
+| OpenCode | Experimental | Smoke-tested: native `.agents/skills` discovery + `instructions` bootstrap |
 | Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Unverified beyond install test; relies on native `.agents/skills` discovery |
 
 ## Claude Code
@@ -143,7 +143,7 @@ Status: Experimental.
 
 - Skills: OpenCode scans `.agents/skills/` and `~/.agents/skills/` and invokes them with its native `skill` tool. It enforces the Agent Skills frontmatter rules (name `^[a-z0-9]+(-[a-z0-9]+)*$`, ≤64 chars, equals folder; description 1–1024 chars), which `tests/schema-validator/run-validator.sh` checks in CI.
 - Bootstrap: `"instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"]` in `~/.config/opencode/opencode.json`. The installer prints this line and never edits user config.
-- Evidence: <smoke test result from Task 7>.
+- Evidence: smoke test 2026-09-28, OpenCode 1.18.29: skills discovered from a symlinked `.agents/skills` (pass); bootstrap loaded via a `~`-prefixed `instructions` path, confirmed against a no-`instructions` control run that could not answer (pass).
 - Known limitations: no OpenCode tool-name mapping reference; Claude Code tool names (`Agent`, `Skill`) in skills are interpreted by the model.
 
 ## Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …)
@@ -153,8 +153,8 @@ Status: Experimental.
 - Install: `./install.sh --agents --global` links each skill into `~/.agents/skills/`, removing only broken links and skipping any existing entry it didn't link from this checkout. The repo ships `.agents/skills -> skills`.
 - Invocation: `$skill-name` or `/skills` (Codex), `/skill-name` (Devin CLI), or implicitly when a description matches.
 - Devin CLI: `.devin/hooks.v1.json` runs `hooks/session-start`, which emits top-level `additionalContext` when `DEVIN_PROJECT_DIR` is set.
-- Evidence: installer test (global linking, the `--global` requirement, preserved unrelated skills); <Codex smoke test result from Task 7>.
-- Known limitations: no automatic bootstrap outside hook-capable agents; no per-agent behavior tests; repo-local discovery through `.agents/skills` needs git symlinks enabled (`core.symlinks=true`; Developer Mode on Windows).
+- Evidence: installer test (global linking, the `--global` requirement, preserved unrelated skills); smoke test 2026-09-28, codex-cli 0.156.1: skills discovered from a real `.agents/skills` directory (pass) and from per-skill symlinks inside one (pass, `$brainstorming` read from its SKILL.md and answered `no-implementation`); a symlinked `.agents/skills` directory itself was not discovered (fail, with and without project trust).
+- Known limitations: no automatic bootstrap outside hook-capable agents; no per-agent behavior tests; repo-local discovery through `.agents/skills` needs git symlinks enabled (`core.symlinks=true`; Developer Mode on Windows), and Codex 0.156.1 does not follow the repo's directory symlink (use `./install.sh --agents --global`, which links per skill).
 
 Windsurf support removed; Windsurf users can use `--agents`.
 

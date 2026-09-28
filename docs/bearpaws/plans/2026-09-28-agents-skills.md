@@ -363,18 +363,18 @@ Expected: only the "Windsurf Cascade is retired" line in `docs/agent-support.md`
 
 ### Task 7: Real-agent smoke tests (manual, results recorded)
 
-- [ ] **Step 1: Temp project**
+- [x] **Step 1: Temp project**
 
 ```bash
 S=$(mktemp -d) && cd "$S" && git init -q && mkdir -p .agents && ln -s /Users/brandon/repos/bearpaws/.claude/worktrees/llm-state-alignment-649e48/skills .agents/skills
 ```
 
-- [ ] **Step 2: OpenCode discovery**
+- [x] **Step 2: OpenCode discovery**
 
 Run: `opencode run "List the names of every skill available to you via the skill tool. Output names only."`
 Expected: the output includes `using-bearpaws` and `brainstorming`.
 
-- [ ] **Step 3: OpenCode bootstrap via project `instructions`**
+- [x] **Step 3: OpenCode bootstrap via project `instructions`**
 
 ```bash
 printf '{ "instructions": [".agents/skills/using-bearpaws/SKILL.md"] }\n' > opencode.json
@@ -383,14 +383,14 @@ opencode run "Quote the first bold line under '## Pace Control' in your instruct
 
 Expected: the output contains `Momentum does not waive gates`.
 
-- [ ] **Step 4: Codex discovery**
+- [x] **Step 4: Codex discovery**
 
 Run: `codex exec "List the names of every skill available to you. Output names only."`
 Expected: the output includes `using-bearpaws`.
 
-- [ ] **Step 5: Record.** Fill in the `<smoke test result from Task 7>` placeholders in `docs/agent-support.md` with the date, agent version (`opencode --version`, `codex --version`), and pass/fail per step. Then run `rm -rf "$S"`.
+- [x] **Step 5: Record.** Fill in the `<smoke test result from Task 7>` placeholders in `docs/agent-support.md` with the date, agent version (`opencode --version`, `codex --version`), and pass/fail per step. Then run `rm -rf "$S"`.
 
-- [ ] **Step 6: Commit** — `docs: record OpenCode and Codex smoke tests`
+- [x] **Step 6: Commit** — `docs: record OpenCode and Codex smoke tests`
 
 ---
 
