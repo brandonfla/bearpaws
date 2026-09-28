@@ -40,6 +40,31 @@ if [[ $violations -gt 0 ]]; then
 fi
 
 echo "OK: no schema violations in skills/"
+# Agent Skills spec check (agentskills.io; same rules OpenCode enforces at load time).
+spec_violations=0
+for f in skills/*/SKILL.md; do
+  dir=$(basename "$(dirname "$f")")
+  fm=$(awk 'NR==1 && /^---$/ {inside=1; next} inside && /^---$/ {exit} inside' "$f")
+  name=$(printf '%s\n' "$fm" | sed -n 's/^name:[[:space:]]*//p' | head -1)
+  desc=$(printf '%s\n' "$fm" | sed -n 's/^description:[[:space:]]*//p' | head -1)
+  desc=${desc#\"}; desc=${desc%\"}
+  if ! [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || (( ${#name} > 64 )) || [[ "$name" != "$dir" ]]; then
+    echo "SPEC VIOLATION: ${f}: name '${name}' must equal folder '${dir}', match ^[a-z0-9]+(-[a-z0-9]+)*\$, and be <=64 chars"
+    spec_violations=$((spec_violations + 1))
+  fi
+  if [[ -z "$desc" ]] || (( ${#desc} > 1024 )); then
+    echo "SPEC VIOLATION: ${f}: description must be 1-1024 chars (got ${#desc})"
+    spec_violations=$((spec_violations + 1))
+  fi
+done
+
+if [[ $spec_violations -gt 0 ]]; then
+  echo ""
+  echo "FAIL: ${spec_violations} Agent Skills spec violation(s)"
+  exit 1
+fi
+
+echo "OK: skills match the Agent Skills frontmatter spec"
 
 # Adversarial gate check: ensure code-reviewer agent and dispatching skill stay aligned.
 # Both files must reference the same four gate names. A reformat that strips a gate
