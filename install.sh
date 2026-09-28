@@ -60,8 +60,6 @@ create_symlinks() {
         
         if [[ $broken_symlinks -gt 0 ]]; then
             log_warning "Removed $broken_symlinks broken symlinks"
-        else
-            log_success "$target_dir symlinks already exist and are valid"
         fi
     fi
     
@@ -71,7 +69,18 @@ create_symlinks() {
     for skill_dir in "$platform_dir"/*/; do
         if [[ -d "$skill_dir" ]]; then
             local skill_name="$(basename "$skill_dir")"
-            ln -sfn "$skill_dir" "$target_dir/$skill_name"
+            local dest="$target_dir/$skill_name"
+            # Never clobber entries we didn't create; refresh only our own links
+            if [[ -e "$dest" || -L "$dest" ]]; then
+                case "$(readlink "$dest" 2>/dev/null)" in
+                    "$platform_dir/$skill_name"|"$platform_dir/$skill_name"/) ;;
+                    *)
+                        log_warning "Skipping $skill_name: $dest exists and is not a Bearpaws link"
+                        continue
+                        ;;
+                esac
+            fi
+            ln -sfn "$skill_dir" "$dest"
             ((++skills_created))
         fi
     done
@@ -120,7 +129,7 @@ install_antigravity() {
         log_error "Failed to create staging directory in $plugin_parent"
         return 1
     }
-    trap 'rm -rf "$staging"' EXIT
+    trap "rm -rf '$staging'" EXIT
 
     mkdir -p "$staging/rules"
     mkdir -p "$staging/skills"
