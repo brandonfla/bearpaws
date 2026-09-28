@@ -23,8 +23,8 @@ description: Use when starting any conversation - establishes how to find and us
 
   <process>
     <step>**In Claude Code:** Use the `Skill` tool. When you invoke a skill, its content loads — follow it directly. Never `Read` skill files.</step>
-    <step>**In other Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, …):** Skills live in `.agents/skills/` or `~/.agents/skills/`. Use the agent's native skill mechanism (`skill` tool in OpenCode, `$skill-name` in Codex, `@skill-name` in Devin); matching descriptions also trigger them.</step>
     <step>**In Antigravity:** Use native Agent Skills. Installed skills are discovered by Antigravity and loaded on demand. When a skill applies, use that skill before performing the governed work. Follow the Antigravity capability mapping supplied by the adapter.</step>
+    <step>**In other Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, …):** Skills live in `.agents/skills/` or `~/.agents/skills/`. Load one with your native skill tool (`skill` in OpenCode) or by reading its `SKILL.md`; users can also type `$skill-name` (Codex) or `/skill-name` (Devin CLI).</step>
     <step>Even a 1% chance a skill might apply means invoke the skill to check.</step>
     <step>If an invoked skill turns out to be wrong for the situation, you don't need to use it.</step>
   </process>

@@ -230,19 +230,19 @@ Run: `git grep -n "codex\|devin\|windsurf" install.sh`. Expected: only the `inst
 - Delete: `.windsurf/`, `.devin/skills/`
 - Modify: `tests/brainstorm-server/windows-lifecycle.test.sh:26-33`
 
-- [ ] **Step 1: Delete**
+- [x] **Step 1: Delete**
 
 ```bash
 git rm -rq .windsurf .devin/skills
 ```
 
-- [ ] **Step 2: Drop the fallbacks.** In `windows-lifecycle.test.sh`, delete the two `elif` branches for `.devin/skills/...` and `.windsurf/skills/...` (lines 26–33), leaving the `if` and the `else` error.
+- [x] **Step 2: Drop the fallbacks.** In `windows-lifecycle.test.sh`, delete the two `elif` branches for `.devin/skills/...` and `.windsurf/skills/...` (lines 26–33), leaving the `if` and the `else` error.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 Run: `ls .devin` → `hooks.v1.json` only. Run `bash -n tests/brainstorm-server/windows-lifecycle.test.sh`, then `git grep -n "\.windsurf\|\.devin/skills" -- ':!docs/bearpaws'`. Expected: no hits in code or tests (docs are fixed in Task 6).
 
-- [ ] **Step 4: Commit** — `chore: remove Windsurf and Devin per-skill symlinks`
+- [x] **Step 4: Commit** — `chore: remove Windsurf and Devin per-skill symlinks`
 
 ---
 
@@ -251,18 +251,18 @@ Run: `ls .devin` → `hooks.v1.json` only. Run `bash -n tests/brainstorm-server/
 **Files:**
 - Modify: `skills/using-bearpaws/SKILL.md:26-27`
 
-- [ ] **Step 1: Replace both lines** (`**In Devin for Terminal / Windsurf Cascade:** …` and `**In Codex:** …`) with:
+- [x] **Step 1: Replace both lines** (`**In Devin for Terminal / Windsurf Cascade:** …` and `**In Codex:** …`) with:
 
 ```markdown
-    <step>**In other Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, …):** Skills live in `.agents/skills/` or `~/.agents/skills/`. Use the agent's native skill mechanism (`skill` tool in OpenCode, `$skill-name` in Codex, `@skill-name` in Devin); matching descriptions also trigger them.</step>
+    <step>**In other Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, …):** Skills live in `.agents/skills/` or `~/.agents/skills/`. Load one with your native skill tool (`skill` in OpenCode) or by reading its `SKILL.md`; users can also type `$skill-name` (Codex) or `/skill-name` (Devin CLI).</step>
 ```
 
-- [ ] **Step 2: Verify**
+- [x] **Step 2: Verify**
 
 Run: `tests/schema-validator/run-validator.sh && tests/antigravity/run-adapter-tests.sh | tail -1 && CLAUDE_PLUGIN_ROOT=$PWD hooks/session-start | grep -c "Agent Skills agents"`
 Expected: validator OK lines, `ALL ANTIGRAVITY ADAPTER TESTS PASSED`, and `1`.
 
-- [ ] **Step 3: Commit** — `feat(bootstrap): one line for all .agents/skills agents`
+- [x] **Step 3: Commit** — `feat(bootstrap): one line for all .agents/skills agents`
 
 ---
 
@@ -291,7 +291,7 @@ Most coding agents now read the shared Agent Skills folder `~/.agents/skills/`. 
 ./install.sh --agents --global
 ```
 
-Restart your agent and invoke `using-bearpaws` (`skill` tool in OpenCode, `$using-bearpaws` in Codex, `@using-bearpaws` in Devin) to confirm discovery. This repo also ships `.agents/skills -> skills` for sessions inside the checkout.
+Restart your agent and invoke `using-bearpaws` (`skill` tool in OpenCode, `$using-bearpaws` in Codex, `/using-bearpaws` in Devin CLI) to confirm discovery. This repo also ships `.agents/skills -> skills` for sessions inside the checkout.
 
 **OpenCode bootstrap:** add to `~/.config/opencode/opencode.json` so the bootstrap loads every session:
 
@@ -326,7 +326,7 @@ Status: Experimental.
 Status: Experimental.
 
 - Install: `./install.sh --agents --global` links each skill into `~/.agents/skills/`, removing only broken links. The repo ships `.agents/skills -> skills`.
-- Invocation: `$skill-name` or `/skills` (Codex), `@skill-name` (Devin/Cascade), or implicitly when a description matches.
+- Invocation: `$skill-name` or `/skills` (Codex), `/skill-name` (Devin CLI), or implicitly when a description matches.
 - Devin for Terminal: `.devin/hooks.v1.json` runs `hooks/session-start`, which emits top-level `additionalContext` when `DEVIN_PROJECT_DIR` is set.
 - Evidence: installer test (global linking, the `--global` requirement, preserved unrelated skills); <Codex smoke test result from Task 7>.
 - Known limitations: no automatic bootstrap outside hook-capable agents; no per-agent behavior tests.

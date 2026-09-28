@@ -45,7 +45,7 @@ Replace per-agent skill wiring with the cross-agent `.agents/skills/` convention
 
 Replace the Devin/Windsurf line and the Codex line with one line:
 
-> **In other Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, …):** Skills live in `.agents/skills/` or `~/.agents/skills/`. Use the agent's native skill mechanism (`skill` tool in OpenCode, `$skill-name` in Codex, `@skill-name` in Devin); matching descriptions also trigger them.
+> **In other Agent Skills agents (Codex, Devin, OpenCode, Cursor, Copilot, …):** Skills live in `.agents/skills/` or `~/.agents/skills/`. Load one with your native skill tool (`skill` in OpenCode) or by reading its `SKILL.md`; users can also type `$skill-name` (Codex) or `/skill-name` (Devin CLI).
 
 Net: one line shorter.
 

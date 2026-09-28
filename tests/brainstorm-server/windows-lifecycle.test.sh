@@ -19,13 +19,13 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="${BEARPAWS_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 
-# Try multiple possible paths for brainstorming scripts
+# Locate brainstorming scripts
 if [[ -f "$REPO_ROOT/skills/brainstorming/scripts/start-server.sh" ]]; then
   START_SCRIPT="$REPO_ROOT/skills/brainstorming/scripts/start-server.sh"
   STOP_SCRIPT="$REPO_ROOT/skills/brainstorming/scripts/stop-server.sh"
   SERVER_JS="$REPO_ROOT/skills/brainstorming/scripts/server.cjs"
 else
-  echo "ERROR: Cannot find brainstorming scripts in any expected location"
+  echo "ERROR: Cannot find brainstorming scripts at $REPO_ROOT/skills/brainstorming/scripts"
   exit 1
 fi
 
