@@ -25,7 +25,7 @@ flowchart TD
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | OpenCode | Experimental | Native `.agents/skills` discovery + `instructions` bootstrap |
-| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Native `.agents/skills` discovery; `install.sh --agents --global` |
+| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Unverified beyond install test; relies on native `.agents/skills` discovery |
 
 See [docs/agent-support.md](docs/agent-support.md) for the current support policy and [docs/skill-structure.md](docs/skill-structure.md) for the descriptive skill structure contract.
 
@@ -85,23 +85,27 @@ BearPaws uses native Antigravity plugin packaging, rules, skills, and subagents 
 
 ## Experimental Install (OpenCode, Codex, Devin, Cursor, Copilot, …)
 
-Most coding agents now read the shared Agent Skills folder `~/.agents/skills/`. One command links every Bearpaws skill there without touching unrelated skills:
+Codex, Devin, OpenCode, and other Agent Skills agents read `~/.agents/skills/`. One command links every Bearpaws skill there without touching unrelated skills:
 
 ```bash
 ./install.sh --agents --global
 ```
 
-Restart your agent and invoke `using-bearpaws` (`skill` tool in OpenCode, `$using-bearpaws` in Codex, `/using-bearpaws` in Devin CLI) to confirm discovery. This repo also ships `.agents/skills -> skills` for sessions inside the checkout. On Windows, that repo-local link needs git symlinks (`core.symlinks=true`, Developer Mode); otherwise use `./install.sh --agents --global`.
+Restart your agent and invoke `using-bearpaws` (`skill` tool in OpenCode, `$using-bearpaws` in Codex, `/using-bearpaws` in Devin CLI) to confirm discovery. This repo also ships `.agents/skills -> skills` for sessions inside the checkout. Repo-local discovery through `.agents/skills` needs git symlinks enabled (`core.symlinks=true`; Developer Mode on Windows).
 
-**OpenCode bootstrap:** add to `~/.config/opencode/opencode.json` so the bootstrap loads every session:
+**OpenCode bootstrap:** merge into `~/.config/opencode/opencode.json` so the bootstrap loads every session:
 
 ```json
-{ "instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"] }
+"instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"]
 ```
 
 Other agents load `using-bearpaws` when it is invoked or matched by its description. Devin CLI sessions in this repo also get it from `.devin/hooks.v1.json`.
 
-The `using-bearpaws` skill is the intended bootstrap for the rest of the skills. Experimental agent activation should be verified in the target tool.
+Links point into your clone: `git pull` updates skills; moving or deleting the clone breaks them. Uninstall (run from the clone):
+
+```bash
+find ~/.agents/skills -maxdepth 1 -lname "$PWD/skills/*" -delete
+```
 
 ## Skills
 

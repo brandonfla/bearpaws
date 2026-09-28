@@ -19,7 +19,7 @@ Current tiers:
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | OpenCode | Experimental | Native `.agents/skills` discovery + `instructions` bootstrap |
-| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Native `.agents/skills` discovery; `install.sh --agents --global` |
+| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Unverified beyond install test; relies on native `.agents/skills` discovery |
 
 ## Claude Code
 
@@ -150,13 +150,13 @@ Status: Experimental.
 
 Status: Experimental.
 
-- Install: `./install.sh --agents --global` links each skill into `~/.agents/skills/`, removing only broken links and skipping any existing non-Bearpaws entry with the same name. The repo ships `.agents/skills -> skills`.
+- Install: `./install.sh --agents --global` links each skill into `~/.agents/skills/`, removing only broken links and skipping any existing entry it didn't link from this checkout. The repo ships `.agents/skills -> skills`.
 - Invocation: `$skill-name` or `/skills` (Codex), `/skill-name` (Devin CLI), or implicitly when a description matches.
 - Devin CLI: `.devin/hooks.v1.json` runs `hooks/session-start`, which emits top-level `additionalContext` when `DEVIN_PROJECT_DIR` is set.
 - Evidence: installer test (global linking, the `--global` requirement, preserved unrelated skills); <Codex smoke test result from Task 7>.
-- Known limitations: no automatic bootstrap outside hook-capable agents; no per-agent behavior tests; repo-local discovery through `.agents/skills` requires git symlinks (`core.symlinks=true`; Developer Mode on Windows), otherwise use `./install.sh --agents --global`.
+- Known limitations: no automatic bootstrap outside hook-capable agents; no per-agent behavior tests; repo-local discovery through `.agents/skills` needs git symlinks enabled (`core.symlinks=true`; Developer Mode on Windows).
 
-Windsurf Cascade is retired: its docs now redirect to Devin, which reads `.agents/skills/`.
+Windsurf support removed; Windsurf users can use `--agents`.
 
 ## Adapter Policy
 
