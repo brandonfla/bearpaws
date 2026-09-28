@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Schema validator: greps skills/ for unknown tags, fails on violations.
+# Schema validator: XML tag whitelist, Agent Skills frontmatter spec, and adversarial gates.
 #
 # Whitelist source of truth: skills/writing-skills/SKILL.md "## XML schema" section.
 # Run from repo root.
@@ -40,10 +40,15 @@ if [[ $violations -gt 0 ]]; then
 fi
 
 echo "OK: no schema violations in skills/"
+
 # Agent Skills spec check (agentskills.io; same rules OpenCode enforces at load time).
 spec_violations=0
 for f in skills/*/SKILL.md; do
   dir=$(basename "$(dirname "$f")")
+  if [[ "$(head -1 "$f")" != "---" ]] || ! awk 'NR>1 && /^---$/ {found=1; exit} END {exit !found}' "$f"; then
+    echo "SPEC VIOLATION: ${f}: frontmatter must start and end with ---"
+    spec_violations=$((spec_violations + 1))
+  fi
   fm=$(awk 'NR==1 && /^---$/ {inside=1; next} inside && /^---$/ {exit} inside' "$f")
   name=$(printf '%s\n' "$fm" | sed -n 's/^name:[[:space:]]*//p' | head -1)
   desc=$(printf '%s\n' "$fm" | sed -n 's/^description:[[:space:]]*//p' | head -1)
@@ -52,8 +57,8 @@ for f in skills/*/SKILL.md; do
     echo "SPEC VIOLATION: ${f}: name '${name}' must equal folder '${dir}', match ^[a-z0-9]+(-[a-z0-9]+)*\$, and be <=64 chars"
     spec_violations=$((spec_violations + 1))
   fi
-  if [[ -z "$desc" ]] || (( ${#desc} > 1024 )); then
-    echo "SPEC VIOLATION: ${f}: description must be 1-1024 chars (got ${#desc})"
+  if [[ -z "$desc" ]] || (( ${#desc} > 1024 )) || [[ "$desc" == [\>\|]* ]]; then
+    echo "SPEC VIOLATION: ${f}: description must be a single line of 1-1024 chars (got ${#desc}; block scalars > | not supported)"
     spec_violations=$((spec_violations + 1))
   fi
 done
