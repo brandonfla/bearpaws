@@ -19,7 +19,7 @@ Current tiers:
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | OpenCode | Experimental | Smoke-tested: native `.agents/skills` discovery + `instructions` bootstrap |
-| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Unverified beyond install test; relies on native `.agents/skills` discovery |
+| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Codex smoke-tested; others rely on native `.agents/skills` discovery |
 
 ## Claude Code
 
@@ -150,11 +150,11 @@ Status: Experimental.
 
 Status: Experimental.
 
-- Install: `./install.sh --agents --global` links each skill into `~/.agents/skills/`, removing only broken links and skipping any existing entry it didn't link from this checkout. The repo ships `.agents/skills -> skills`.
+- Install: `./install.sh --agents --global` links each skill into `~/.agents/skills/`, removing only broken links and skipping any existing entry it didn't link from this checkout. The repo ships `.agents/skills/` (per-skill links into `skills/`).
 - Invocation: `$skill-name` or `/skills` (Codex), `/skill-name` (Devin CLI), or implicitly when a description matches.
 - Devin CLI: `.devin/hooks.v1.json` runs `hooks/session-start`, which emits top-level `additionalContext` when `DEVIN_PROJECT_DIR` is set.
-- Evidence: installer test (global linking, the `--global` requirement, preserved unrelated skills); smoke test 2026-09-28, codex-cli 0.156.1: skills discovered from a real `.agents/skills` directory (pass) and from per-skill symlinks inside one (pass, `$brainstorming` read from its SKILL.md and answered `no-implementation`); a symlinked `.agents/skills` directory itself was not discovered (fail, with and without project trust).
-- Known limitations: no automatic bootstrap outside hook-capable agents; no per-agent behavior tests; repo-local discovery through `.agents/skills` needs git symlinks enabled (`core.symlinks=true`; Developer Mode on Windows), and Codex 0.156.1 does not follow the repo's directory symlink (use `./install.sh --agents --global`, which links per skill).
+- Evidence: installer test (global linking, the `--global` requirement, preserved unrelated skills); smoke test 2026-09-28, codex-cli 0.156.1: skills discovered via per-skill links in a plain repo (pass); brainstorming loaded on request, SKILL.md read, answered `no-implementation` (pass); a symlinked `.agents/skills` directory was not discovered (fail, with and without project trust); inside a Bearpaws checkout (clone or worktree) only the `bp:` plugin skills were listed (see limitations).
+- Known limitations: no automatic bootstrap outside hook-capable agents; no per-agent behavior tests; repo-local discovery through `.agents/skills` needs git symlinks enabled (`core.symlinks=true`; Developer Mode on Windows); Codex does not follow a symlinked skills *directory*, so Bearpaws uses per-skill links; in a Bearpaws checkout, Codex lists the installed `bp:` plugin skills instead of the repo-local copies (it treats the repo as the plugin's source; confirmed by adding `.claude-plugin/` to an otherwise passing repo); `./install.sh --agents --global` is the supported path for other projects.
 
 Windsurf support removed; Windsurf users can use `--agents`.
 

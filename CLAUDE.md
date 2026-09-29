@@ -19,7 +19,7 @@ Skills cover TDD, debugging, planning, code review, and parallel execution, plus
 - [.claude-plugin/](.claude-plugin/) — Claude Code plugin manifest and dev marketplace.
 - [.antigravity/](.antigravity/) — Google Antigravity IDE plugin manifest (`plugin.json`) and rules (`bearpaws.md`).
 - [.devin/](.devin/) — Devin CLI `hooks.v1.json` (SessionStart hook). Skills come from `.agents/skills`.
-- [.agents/skills](.agents/skills) — repo-level Agent Skills discovery (symlink to `skills/`). `install.sh --agents --global` links skills into `~/.agents/skills/` for Codex, Devin, OpenCode, Cursor, Copilot, and others.
+- [.agents/skills](.agents/skills) — repo-level Agent Skills discovery: a real directory of per-skill links into `skills/` (Codex ignores a symlinked skills directory). The validator keeps it in sync; a new skill needs `ln -s ../../skills/<name> .agents/skills/<name>`. `install.sh --agents --global` links skills into `~/.agents/skills/` for Codex, Devin, OpenCode, Cursor, Copilot, and others.
 - [scripts/](scripts/) — version-bump tooling.
 - [tests/antigravity/](tests/antigravity/) — static adapter tests for Antigravity plugin integrity.
 - [tests/install/](tests/install/) — installer tests for Antigravity and Agent Skills (`--agents`).
@@ -36,7 +36,7 @@ Skills cover TDD, debugging, planning, code review, and parallel execution, plus
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | OpenCode | Experimental | Smoke-tested: native `.agents/skills` discovery + `instructions` bootstrap |
-| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Unverified beyond install test; relies on native `.agents/skills` discovery |
+| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Codex smoke-tested; others rely on native `.agents/skills` discovery |
 
 ## How the bootstrap works
 
