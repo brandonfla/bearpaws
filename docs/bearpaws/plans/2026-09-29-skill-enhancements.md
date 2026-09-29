@@ -28,16 +28,16 @@
 - Create: `tests/skill-triggering/prompts/{finishing-a-development-branch,receiving-code-review,using-git-worktrees,verification-before-completion}.txt`
 - Modify: `tests/skill-triggering/run-all.sh` (SKILLS list)
 
-- [ ] **Step 1: Confirm which plugin copy the harness exercises.** The user also has `bp` 2.2.0 installed globally with the same skill names. Run one triggering test (`tests/skill-triggering/run-test.sh brainstorming tests/skill-triggering/prompts/brainstorming.txt`) and inspect the `system`/`init` event in `/tmp/bearpaws-tests/<ts>/skill-triggering/brainstorming/claude-output.json` for plugin paths. If the installed 2.2.0 copy is loaded alongside or instead of `--plugin-dir`, isolate the harness: pass `--setting-sources project,local` or an equivalent documented `claude` flag that excludes user-installed plugins (check `claude --help`). Apply the fix in `tests/skill-triggering/run-test.sh` and `tests/explicit-skill-requests/run-test.sh`, then re-run to prove only this checkout's skills load. Record the evidence.
-- [ ] **Step 2: Add naive prompts** for the four uncovered skills. Each is 1–3 sentences a real user would type, and none names the skill:
+- [x] **Step 1: Confirm which plugin copy the harness exercises.** The user also has `bp` 2.2.0 installed globally with the same skill names. Run one triggering test (`tests/skill-triggering/run-test.sh brainstorming tests/skill-triggering/prompts/brainstorming.txt`) and inspect the `system`/`init` event in `/tmp/bearpaws-tests/<ts>/skill-triggering/brainstorming/claude-output.json` for plugin paths. If the installed 2.2.0 copy is loaded alongside or instead of `--plugin-dir`, isolate the harness: pass `--setting-sources project,local` or an equivalent documented `claude` flag that excludes user-installed plugins (check `claude --help`). Apply the fix in `tests/skill-triggering/run-test.sh` and `tests/explicit-skill-requests/run-test.sh`, then re-run to prove only this checkout's skills load. Record the evidence.
+- [x] **Step 2: Add naive prompts** for the four uncovered skills. Each is 1–3 sentences a real user would type, and none names the skill:
   - `finishing-a-development-branch.txt`: "All the tasks on my feature branch are done and the tests pass. What should I do with the branch now?"
   - `receiving-code-review.txt`: "My reviewer left these comments on my PR: 'Extract the retry logic into a helper' and 'This null check is unnecessary, remove it.' Can you address them?"
   - `using-git-worktrees.txt`: "I want to start a new feature but keep my current work untouched in this checkout. Set me up an isolated workspace for it."
   - `verification-before-completion.txt`: "I think I fixed the login bug. Can you confirm it's done so I can open the PR?"
-- [ ] **Step 3: Add the four skills** to the `SKILLS` array in `run-all.sh`.
-- [ ] **Step 4: Baseline.** Run `tests/skill-triggering/run-all.sh`, `tests/explicit-skill-requests/run-all.sh`, and `tests/claude-code/run-skill-tests.sh`. Record per-skill PASS/FAIL, the bootstrap word count (`wc -w skills/using-bearpaws/SKILL.md`), and the `measure.sh` bootstrap token figure in the Evidence log.
-- [ ] **Step 5: Over-trigger baseline.** Run `claude -p "What is 17 * 23? Reply with the number only." --plugin-dir <repo> --output-format stream-json --verbose --max-turns 2` (with the same isolation as Step 1) and count `"name":"Skill"` invocations. Repeat with "What does the acronym HTTP stand for?". Record both counts.
-- [ ] **Step 6: Commit:** `test(triggering): cover four more skills; isolate from installed plugin; record baseline`
+- [x] **Step 3: Add the four skills** to the `SKILLS` array in `run-all.sh`.
+- [x] **Step 4: Baseline.** Run `tests/skill-triggering/run-all.sh`, `tests/explicit-skill-requests/run-all.sh`, and `tests/claude-code/run-skill-tests.sh`. Record per-skill PASS/FAIL, the bootstrap word count (`wc -w skills/using-bearpaws/SKILL.md`), and the `measure.sh` bootstrap token figure in the Evidence log.
+- [x] **Step 5: Over-trigger baseline.** Run `claude -p "What is 17 * 23? Reply with the number only." --plugin-dir <repo> --output-format stream-json --verbose --max-turns 2` (with the same isolation as Step 1) and count `"name":"Skill"` invocations. Repeat with "What does the acronym HTTP stand for?". Record both counts.
+- [x] **Step 6: Commit:** `test(triggering): cover four more skills; isolate from installed plugin; record baseline`
 
 ### Task 2: Descriptions (findings 1 and 4)
 
@@ -87,4 +87,27 @@
 
 ## Evidence log
 
-(Filled in during execution.)
+### Baseline (2026-09-29, claude 2.1.281)
+
+**Isolation finding.** The init event of the first run lists exactly one `bp` plugin: `{"name":"bp","path":"<this checkout>","source":"bp@inline","version":"2.3.0"}`. The globally installed `bp@bearpaws` 2.2.0 (enabled in user settings) is not loaded: `--plugin-dir` registers the checkout as `bp@inline`, which shadows the same-named installed plugin. All 15 `bp:*` skills in the init event come from the checkout, and the SessionStart stream contains the checkout-only phrase "Load one with your native skill tool". No extra flags (`--setting-sources`, `--bare`) were needed, so `--bare` was never tried (it would skip the bootstrap hook). Auth works with the existing flags. Other plugins' node SessionStart hooks fail with `dyld ... libsimdjson.29.dylib` (exit 1, 5 of 6 hooks); the bp hook exits 0.
+
+Changes: `run-test.sh` in `skill-triggering` and `explicit-skill-requests` now warn if the init event shows a `bp` plugin whose source is not `bp@inline`. `tests/claude-code/test-helpers.sh` `run_claude` previously passed NO `--plugin-dir` (the fast test exercised the installed 2.2.0), so it now passes `--plugin-dir <repo>`.
+
+| Suite | Result |
+|---|---|
+| skill-triggering run 1 (13 skills) | 12/13; FAIL: dispatching-parallel-agents |
+| skill-triggering run 2 (13 skills) | 13/13 |
+| explicit-skill-requests (4) | 4/4 (subagent-driven-development-please, use-systematic-debugging, please-use-brainstorming, mid-conversation-execute-plan) |
+| claude-code fast (test-subagent-driven-development.sh) | PASS (with `--plugin-dir`; also PASS before the fix, against installed 2.2.0) |
+
+The four new skills (finishing-a-development-branch, receiving-code-review, using-git-worktrees, verification-before-completion) triggered in both runs. dispatching-parallel-agents is flaky (1 of 2).
+
+**Size.** `wc -w skills/using-bearpaws/SKILL.md`: 911 words. `measure.sh`: bootstrap `additionalContext` 6334 bytes (about 1520 tokens at the ~0.24 tok/byte ratio in `tests/token-measurement/README.md`; `measure.sh` reports bytes only).
+
+**Over-trigger** (isolated, `--max-turns 2`, temp dir, `"name":"Skill"` count):
+
+| Prompt | Run 1 | Run 2 |
+|---|---|---|
+| What is 17 * 23? Reply with the number only. | 0 | 0 |
+| What does the acronym HTTP stand for? | 0 | 0 |
+

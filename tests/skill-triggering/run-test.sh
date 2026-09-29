@@ -62,6 +62,12 @@ env -u CLAUDECODE $TIMEOUT_CMD claude -p "$PROMPT" \
     --verbose \
     > "$LOG_FILE" 2>&1 || true
 
+# Isolation guard: --plugin-dir registers this checkout as "bp@inline", which shadows the globally
+# installed bp@bearpaws of the same name. Warn if the init event shows any other bp copy.
+if grep -q '"name":"bp"' "$LOG_FILE" && ! grep -q '"source":"bp@inline"' "$LOG_FILE"; then
+    echo "WARNING: bp plugin loaded from somewhere other than $PLUGIN_DIR; results are not isolated"
+fi
+
 echo ""
 echo "=== Results ==="
 
