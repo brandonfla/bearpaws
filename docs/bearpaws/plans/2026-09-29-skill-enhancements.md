@@ -1,0 +1,90 @@
+# Skill Enhancements Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use bp:subagent-driven-development (recommended) or bp:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
+
+**Goal:** Apply the five approved audit findings (2026-09-29) to skill content, each backed by before/after evidence, as required by `bp:writing-skills` and CLAUDE.md "When editing skills".
+
+**Architecture:** Measure first (baseline), edit the skill text, re-measure with the same harness. The harnesses are `tests/skill-triggering/` (does a naive prompt trigger the right skill), `tests/explicit-skill-requests/run-all.sh`, `tests/claude-code/run-skill-tests.sh` (fast), and `tests/token-measurement/measure.sh`. Evidence goes in the "Evidence log" at the bottom of this file.
+
+**Tech Stack:** Markdown skills, bash test harnesses, `claude -p` (stream-json).
+
+**Findings in scope:**
+1. Five descriptions summarize workflow instead of triggering conditions: brainstorming, finishing-a-development-branch, receiving-code-review, using-git-worktrees, verification-before-completion.
+2. The bootstrap `skills/using-bearpaws/SKILL.md` is 911 words and is injected into every session; the guideline for frequently loaded skills is under 200 words.
+3. The bootstrap uses aggressive emphasis ("1% chance", "ABSOLUTELY MUST", "YOU DO NOT HAVE A CHOICE"). Current Claude models over-trigger on this; Anthropic's Claude 4+ prompting guidance recommends calm "Use X when…" phrasing.
+4. The brainstorming description does not start with "Use when".
+5. Brainstorming's "Write design doc… Commit" step conflicts with current agent harnesses that commit only when the user asks.
+
+**Rules for every task:**
+- Never edit a skill before its baseline is recorded.
+- Tuned content (Red Flags tables, rationalization tables, "your human partner") stays unless evidence supports a change.
+- Commits have no attribution trailers.
+
+---
+
+### Task 1: Harness integrity and baseline
+
+**Files:**
+- Create: `tests/skill-triggering/prompts/{finishing-a-development-branch,receiving-code-review,using-git-worktrees,verification-before-completion}.txt`
+- Modify: `tests/skill-triggering/run-all.sh` (SKILLS list)
+
+- [ ] **Step 1: Confirm which plugin copy the harness exercises.** The user also has `bp` 2.2.0 installed globally with the same skill names. Run one triggering test (`tests/skill-triggering/run-test.sh brainstorming tests/skill-triggering/prompts/brainstorming.txt`) and inspect the `system`/`init` event in `/tmp/bearpaws-tests/<ts>/skill-triggering/brainstorming/claude-output.json` for plugin paths. If the installed 2.2.0 copy is loaded alongside or instead of `--plugin-dir`, isolate the harness: pass `--setting-sources project,local` or an equivalent documented `claude` flag that excludes user-installed plugins (check `claude --help`). Apply the fix in `tests/skill-triggering/run-test.sh` and `tests/explicit-skill-requests/run-test.sh`, then re-run to prove only this checkout's skills load. Record the evidence.
+- [ ] **Step 2: Add naive prompts** for the four uncovered skills. Each is 1–3 sentences a real user would type, and none names the skill:
+  - `finishing-a-development-branch.txt`: "All the tasks on my feature branch are done and the tests pass. What should I do with the branch now?"
+  - `receiving-code-review.txt`: "My reviewer left these comments on my PR: 'Extract the retry logic into a helper' and 'This null check is unnecessary, remove it.' Can you address them?"
+  - `using-git-worktrees.txt`: "I want to start a new feature but keep my current work untouched in this checkout. Set me up an isolated workspace for it."
+  - `verification-before-completion.txt`: "I think I fixed the login bug. Can you confirm it's done so I can open the PR?"
+- [ ] **Step 3: Add the four skills** to the `SKILLS` array in `run-all.sh`.
+- [ ] **Step 4: Baseline.** Run `tests/skill-triggering/run-all.sh`, `tests/explicit-skill-requests/run-all.sh`, and `tests/claude-code/run-skill-tests.sh`. Record per-skill PASS/FAIL, the bootstrap word count (`wc -w skills/using-bearpaws/SKILL.md`), and the `measure.sh` bootstrap token figure in the Evidence log.
+- [ ] **Step 5: Over-trigger baseline.** Run `claude -p "What is 17 * 23? Reply with the number only." --plugin-dir <repo> --output-format stream-json --verbose --max-turns 2` (with the same isolation as Step 1) and count `"name":"Skill"` invocations. Repeat with "What does the acronym HTTP stand for?". Record both counts.
+- [ ] **Step 6: Commit:** `test(triggering): cover four more skills; isolate from installed plugin; record baseline`
+
+### Task 2: Descriptions (findings 1 and 4)
+
+**Files:** frontmatter only in `skills/{brainstorming,finishing-a-development-branch,receiving-code-review,using-git-worktrees,verification-before-completion}/SKILL.md`
+
+- [ ] **Step 1: Rewrite each `description`** to triggering conditions only: third person, starting "Use when…", no workflow summary. Keep the trigger keywords.
+  - brainstorming: `Use when about to create or change features, components, or behavior and the design has not been agreed yet`
+  - finishing-a-development-branch: `Use when implementation on a branch is complete, tests pass, and it's time to decide how to integrate the work (merge, PR, keep, or discard)`
+  - receiving-code-review: `Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable`
+  - using-git-worktrees: `Use when starting feature work that needs isolation from the current workspace, or before executing an implementation plan`
+  - verification-before-completion: `Use when about to claim work is complete, fixed, or passing, or before committing or opening a PR`
+- [ ] **Step 2: Run the validator** (`tests/schema-validator/run-validator.sh`, expect 4 OK).
+- [ ] **Step 3: Re-run triggering** for these 5 skills plus `run-all.sh` for regressions. Each must pass at least as often as the baseline. If one regresses, adjust its keywords (not a workflow summary) and re-run, at most 2 iterations; if it still regresses, revert that description and log why.
+- [ ] **Step 4: Commit:** `feat(skills): trigger-only descriptions for five skills`
+
+### Task 3: Bootstrap trim and de-escalation (findings 2 and 3)
+
+**Files:** `skills/using-bearpaws/SKILL.md`, plus `tests/antigravity/run-adapter-tests.sh` only if its asserted strings move
+
+- [ ] **Step 1: Draft the trimmed bootstrap.** Target ≤450 words (roughly half) as a first step toward the 200-word guideline. Keep, in this order: the subagent-stop line; the core rule; the per-agent process lines (Claude Code, Antigravity, other Agent Skills agents); the Red Flags table (tuned, keep verbatim); Pace Control ending in "**Momentum does not waive gates.**" (the adapter test asserts it); skill priority; and the lazy-load contract. Condense the Brevity Policy to at most 4 bullets, keeping its "Never compress" items. Drop the "Skill types" section only if its content lives in the process skills. Replace shouting with calm directives, for example: "If a skill might apply, invoke it before responding — including before clarifying questions. Skills override default behavior; user instructions override skills." Keep `<warning level="hard">` semantics, but without all-caps.
+- [ ] **Step 2: Verify static checks:** validator (4 OK), `tests/antigravity/run-adapter-tests.sh` (Pace Control, Red Flag, Antigravity step, no `activate_skill`), and `CLAUDE_PLUGIN_ROOT=$PWD hooks/session-start | python3 -m json.tool`.
+- [ ] **Step 3: Re-run every harness** from Task 1 Steps 4–5 under the same isolation. Acceptance:
+  - Triggering and explicit-request pass counts are ≥ the Task 1 baseline.
+  - The fast test passes.
+  - Over-trigger counts are ≤ the baseline.
+  - The word count is ≤450.
+  
+  If triggering regresses, restore the specific removed element that plausibly caused it (not all of them) and re-run, at most 2 iterations. If it still regresses, report BLOCKED with the evidence.
+- [ ] **Step 4: Commit:** `feat(bootstrap): halve using-bearpaws and drop aggressive emphasis`
+
+### Task 4: Brainstorming commit step (finding 5)
+
+**Files:** `skills/brainstorming/SKILL.md` (the "Write design doc" step only)
+
+- [ ] **Step 1: RED.** In a temp git repo with one file, run `claude -p` (isolated, with `--plugin-dir`) with a prompt that completes a tiny brainstorm in one turn: "Design is approved as-is: a CLI flag --quiet that suppresses stdout. Write the design doc now." Use `--max-turns 6`. Check the stream-json for a `git commit` Bash call made without the user asking. Record it.
+- [ ] **Step 2: Edit the step** to: `**Write design doc** — save to docs/bearpaws/plans/YYYY-MM-DD-{topic}-design.md (user prefs override). Commit it if the user or project allows commits without asking; otherwise leave it uncommitted and say so.`
+- [ ] **Step 3: GREEN.** Re-run the Step 1 scenario and record whether an unrequested commit still happens. Also re-run the brainstorming triggering test.
+- [ ] **Step 4: Commit:** `fix(brainstorming): respect harness commit policy for design docs`
+
+### Task 5: Release notes and final verification
+
+- [ ] **Step 1: Append to `docs/bearpaws/release-notes/2.3.0.md`** a "Skill content" section. List the five findings, with before/after numbers from the Evidence log (bootstrap words and tokens, triggering pass counts, over-trigger counts).
+- [ ] **Step 2: Run** the validator, the install tests, the adapter tests (`PATH=/usr/bin:/bin` if node is broken), `measure.sh`, `bump-version.sh --check`, and the fast Claude test.
+- [ ] **Step 3: Commit:** `docs(release-notes): skill content enhancements with eval evidence`
+
+---
+
+## Evidence log
+
+(Filled in during execution.)
