@@ -150,7 +150,7 @@ Begin now. Execute the plan."
 echo "Running Claude (output will be shown below and saved to $OUTPUT_FILE)..."
 echo "================================================================================"
 SESSION_ID=$(uuidgen | tr "[:upper:]" "[:lower:]")
-cd "$SCRIPT_DIR/../.." && portable_timeout 1800 claude -p "$PROMPT" --session-id "$SESSION_ID" --allowed-tools=all --add-dir "$TEST_PROJECT" --permission-mode bypassPermissions 2>&1 | tee "$OUTPUT_FILE" || {
+cd "$SCRIPT_DIR/../.." && portable_timeout 1800 claude -p "$PROMPT" --plugin-dir "$(cd "$SCRIPT_DIR/../.." && pwd)" --session-id "$SESSION_ID" --allowed-tools=all --add-dir "$TEST_PROJECT" --permission-mode bypassPermissions 2>&1 | tee "$OUTPUT_FILE" || {
     echo ""
     echo "================================================================================"
     echo "EXECUTION FAILED (exit code: $?)"

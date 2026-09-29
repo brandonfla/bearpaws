@@ -64,6 +64,7 @@
   - The fast test passes.
   - Over-trigger counts are ≤ the baseline.
   - The word count is ≤450.
+  - Judge dispatching-parallel-agents (flaky at baseline) over ≥3 runs.
   
   If triggering regresses, restore the specific removed element that plausibly caused it (not all of them) and re-run, at most 2 iterations. If it still regresses, report BLOCKED with the evidence.
 - [ ] **Step 4: Commit:** `feat(bootstrap): halve using-bearpaws and drop aggressive emphasis`
@@ -91,7 +92,7 @@
 
 **Isolation finding.** The init event of the first run lists exactly one `bp` plugin: `{"name":"bp","path":"<this checkout>","source":"bp@inline","version":"2.3.0"}`. The globally installed `bp@bearpaws` 2.2.0 (enabled in user settings) is not loaded: `--plugin-dir` registers the checkout as `bp@inline`, which shadows the same-named installed plugin. All 15 `bp:*` skills in the init event come from the checkout, and the SessionStart stream contains the checkout-only phrase "Load one with your native skill tool". No extra flags (`--setting-sources`, `--bare`) were needed, so `--bare` was never tried (it would skip the bootstrap hook). Auth works with the existing flags. Other plugins' node SessionStart hooks fail with `dyld ... libsimdjson.29.dylib` (exit 1, 5 of 6 hooks); the bp hook exits 0.
 
-Changes: `run-test.sh` in `skill-triggering` and `explicit-skill-requests` now warn if the init event shows a `bp` plugin whose source is not `bp@inline`. `tests/claude-code/test-helpers.sh` `run_claude` previously passed NO `--plugin-dir` (the fast test exercised the installed 2.2.0), so it now passes `--plugin-dir <repo>`.
+Changes: `run-test.sh` in `skill-triggering` and `explicit-skill-requests` now read only the init event line and warn (without failing) when it is missing ("no init event; isolation unverified") or when any `bp` plugin entry has a source other than `bp@inline`, including when both bp@bearpaws and bp@inline are present; whitespace after colons is tolerated. Verified with synthetic lines (inline only, installed only, both, spaced JSON, empty log). `tests/claude-code/test-helpers.sh` `run_claude` previously passed NO `--plugin-dir` (the fast test exercised the installed 2.2.0), so it now passes `--plugin-dir <repo>`. The two other `claude -p` callers, `test-document-review-system.sh` and `test-subagent-driven-development-integration.sh`, were fixed the same way.
 
 | Suite | Result |
 |---|---|
