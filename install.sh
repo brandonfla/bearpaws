@@ -49,12 +49,20 @@ create_symlinks() {
     if [[ -d "$target_dir" ]]; then
         log_warning "$target_dir already exists, checking existing symlinks..."
         
-        # Remove only broken symlinks; the target may be shared with other skills
+        # Remove only broken symlinks belonging to Bearpaws; the target directory
+        # may be shared with other skills packs whose links must be preserved even
+        # when their targets are temporarily unavailable.
         local broken_symlinks=0
         for skill in "$target_dir"/*; do
             if [[ -L "$skill" && ! -e "$skill" ]]; then
-                rm "$skill"
-                ((++broken_symlinks))
+                case "$(readlink "$skill" 2>/dev/null)" in
+                    "$platform_dir"/*)
+                        rm "$skill"
+                        ((++broken_symlinks))
+                        ;;
+                    *)
+                        ;;
+                esac
             fi
         done
         

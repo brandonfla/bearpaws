@@ -105,14 +105,16 @@ AGENTS_SKILLS="$AGENTS_HOME_DIR/.agents/skills"
 mkdir -p "$AGENTS_SKILLS" "$TMP_ROOT/unrelated-skill"
 ln -s "$TMP_ROOT/unrelated-skill" "$AGENTS_SKILLS/unrelated"
 ln -s "$TMP_ROOT/missing-skill" "$AGENTS_SKILLS/broken"
+ln -s "$WORK/skills/removed" "$AGENTS_SKILLS/removed"
 
-# Name collisions with skills present in source: beta (real dir), delta (plain file), zeta (foreign link)
-mkdir -p "$WORK/skills/delta" "$WORK/skills/zeta"
-touch "$WORK/skills/delta/SKILL.md" "$WORK/skills/zeta/SKILL.md"
+# Name collisions with skills present in source: beta (real dir), delta (plain file), zeta (foreign link), eta (dangling foreign link)
+mkdir -p "$WORK/skills/delta" "$WORK/skills/zeta" "$WORK/skills/eta"
+touch "$WORK/skills/delta/SKILL.md" "$WORK/skills/zeta/SKILL.md" "$WORK/skills/eta/SKILL.md"
 mkdir -p "$AGENTS_SKILLS/beta"
 echo mine > "$AGENTS_SKILLS/beta/mine.txt"
 echo mine > "$AGENTS_SKILLS/delta"
 ln -s "$TMP_ROOT/unrelated-skill" "$AGENTS_SKILLS/zeta"
+ln -s "$TMP_ROOT/missing-foreign-target" "$AGENTS_SKILLS/eta"
 
 if ( cd "$WORK" && HOME="$AGENTS_HOME_DIR" ./install.sh --agents ) >/dev/null 2>&1; then
   echo "FAIL: install should require --global for agents"
@@ -124,7 +126,8 @@ fi
 test -L "$AGENTS_SKILLS/gamma"
 test -f "$AGENTS_SKILLS/using-bearpaws/SKILL.md"
 test -L "$AGENTS_SKILLS/unrelated"   # shared dir: valid foreign links survive
-test ! -L "$AGENTS_SKILLS/broken"    # broken links are cleaned up
+test -L "$AGENTS_SKILLS/broken"      # shared dir: foreign dangling links survive
+test ! -L "$AGENTS_SKILLS/removed"   # broken Bearpaws links are cleaned up
 
 # Collisions with non-Bearpaws entries are skipped, never clobbered
 test ! -L "$AGENTS_SKILLS/beta"
@@ -134,6 +137,7 @@ test -f "$AGENTS_SKILLS/delta"
 test ! -L "$AGENTS_SKILLS/delta"
 grep -qx mine "$AGENTS_SKILLS/delta"
 test "$(readlink "$AGENTS_SKILLS/zeta")" = "$TMP_ROOT/unrelated-skill"
+test "$(readlink "$AGENTS_SKILLS/eta")" = "$TMP_ROOT/missing-foreign-target"
 
 # Idempotency: our own links are refreshed, not skipped
 out2="$( cd "$WORK" && HOME="$AGENTS_HOME_DIR" ./install.sh --agents --global 2>&1 )"

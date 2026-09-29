@@ -104,7 +104,11 @@ Other agents load `using-bearpaws` when it is invoked or matched by its descript
 Links point into your clone: `git pull` updates skills; moving or deleting the clone breaks them. Uninstall (run from the clone):
 
 ```bash
-find ~/.agents/skills -maxdepth 1 -lname "$PWD/skills/*" -delete
+for link in ~/.agents/skills/*; do
+  case "$(readlink "$link" 2>/dev/null)" in
+    "$PWD/skills"/*) rm "$link" ;;
+  esac
+done
 ```
 
 And remove the `instructions` entry from your OpenCode config.

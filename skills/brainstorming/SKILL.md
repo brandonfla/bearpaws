@@ -25,7 +25,6 @@ description: Use when about to create or change features, components, or behavio
 
   <process>
     <step>**Explore project context** — check files, docs, recent commits.</step>
-    <step>**Offer visual companion** (if visual questions ahead) — own message, no other content. See visual-companion.md.</step>
     <step>**Ask clarifying questions** — one at a time. Multiple choice preferred. Understand purpose, constraints, success criteria.</step>
     <step>**Scope check** — if the request spans multiple independent subsystems, flag it. Decompose into sub-projects before refining details. Each sub-project gets its own spec → plan → implementation cycle.</step>
     <step>**Propose 2-3 approaches** — with trade-offs and your recommendation. Lead with recommended option.</step>
@@ -40,8 +39,6 @@ description: Use when about to create or change features, components, or behavio
     ```dot
     digraph brainstorming {
       "Explore context" [shape=box];
-      "Visual ahead?" [shape=diamond];
-      "Offer companion\n(own message)" [shape=box];
       "Clarifying Qs" [shape=box];
       "Propose approaches" [shape=box];
       "Present design" [shape=box];
@@ -51,10 +48,7 @@ description: Use when about to create or change features, components, or behavio
       "User reviews?" [shape=diamond];
       "Invoke writing-plans" [shape=doublecircle];
 
-      "Explore context" -> "Visual ahead?";
-      "Visual ahead?" -> "Offer companion\n(own message)" [label="yes"];
-      "Visual ahead?" -> "Clarifying Qs" [label="no"];
-      "Offer companion\n(own message)" -> "Clarifying Qs";
+      "Explore context" -> "Clarifying Qs";
       "Clarifying Qs" -> "Propose approaches";
       "Propose approaches" -> "Present design";
       "Present design" -> "Approved?";
@@ -79,7 +73,6 @@ description: Use when about to create or change features, components, or behavio
     <rule>**Follow existing patterns** in existing codebases. Only propose improvements that serve the current goal.</rule>
   </rules>
 
-  <see file="visual-companion.md"/>
   <see file="spec-document-reviewer-prompt.md"/>
 
 </skill>

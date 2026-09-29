@@ -44,7 +44,7 @@ description: Use when starting any conversation, before responding or exploring 
 
   ## Skill priority
 
-  1. **`bp:onboarding-to-a-project`** first for projects; skip abstract design.
+  1. **`bp:onboarding-to-a-project`** first for projects; skip only for abstract design with no project involved.
   2. **`bp:brainstorming`** next for design, using project conventions.
   3. **Other process skills** for planning, TDD, debugging, review, and verification.
 
