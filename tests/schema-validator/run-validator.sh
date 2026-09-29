@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Schema validator: XML tag whitelist, Agent Skills frontmatter spec, and adversarial gates.
+# Schema validator: XML tag whitelist, Agent Skills frontmatter spec, .agents/skills links, and adversarial gates.
 #
 # Whitelist source of truth: skills/writing-skills/SKILL.md "## XML schema" section.
 # Run from repo root.
@@ -75,22 +75,25 @@ echo "OK: skills match the Agent Skills frontmatter spec"
 # .agents/skills must be a real directory holding one symlink per skill.
 agents_violations=0
 if [[ -L .agents/skills ]] || [[ ! -d .agents/skills ]]; then
-  echo "AGENTS VIOLATION: .agents/skills must be a real directory, not a symlink"
+  echo "AGENTS VIOLATION: .agents/skills must exist as a real directory (not a symlink)"
   agents_violations=$((agents_violations + 1))
 else
   for d in skills/*/; do
     n=$(basename "$d")
-    if [[ ! -L ".agents/skills/$n" ]] || [[ "$(cd ".agents/skills/$n" 2>/dev/null && pwd -P)" != "$(cd "skills/$n" && pwd -P)" ]]; then
-      echo "AGENTS VIOLATION: .agents/skills/${n} must be a symlink to skills/${n}"
+    p=".agents/skills/$n"
+    if [[ -L "$p" ]] && [[ "$(readlink "$p")" == "../../skills/$n" ]] && [[ -d "$p" ]]; then
+      :
+    else
+      echo "AGENTS VIOLATION: ${p} must be a symlink to ../../skills/${n} (Windows: enable core.symlinks)"
       agents_violations=$((agents_violations + 1))
     fi
   done
-  for e in .agents/skills/* .agents/skills/.[!.]*; do
-    [[ -e "$e" || -L "$e" ]] || continue
-    [[ -d "skills/$(basename "$e")" ]] || {
+  # Dotfiles (e.g. .DS_Store) are ignored; only non-dot entries are checked for extras.
+  for e in .agents/skills/*; do
+    if [[ -e "$e" || -L "$e" ]] && [[ ! -d "skills/$(basename "$e")" ]]; then
       echo "AGENTS VIOLATION: ${e} has no matching skills/ directory"
       agents_violations=$((agents_violations + 1))
-    }
+    fi
   done
 fi
 
