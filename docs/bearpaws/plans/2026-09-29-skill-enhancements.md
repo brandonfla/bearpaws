@@ -43,22 +43,22 @@
 
 **Files:** frontmatter only in `skills/{brainstorming,finishing-a-development-branch,receiving-code-review,using-git-worktrees,verification-before-completion}/SKILL.md`
 
-- [ ] **Step 1: Rewrite each `description`** to triggering conditions only: third person, starting "Use when…", no workflow summary. Keep the trigger keywords.
+- [x] **Step 1: Rewrite each `description`** to triggering conditions only: third person, starting "Use when…", no workflow summary. Keep the trigger keywords.
   - brainstorming: `Use when about to create or change features, components, or behavior and the design has not been agreed yet`
   - finishing-a-development-branch: `Use when implementation on a branch is complete, tests pass, and it's time to decide how to integrate the work (merge, PR, keep, or discard)`
   - receiving-code-review: `Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable`
   - using-git-worktrees: `Use when starting feature work that needs isolation from the current workspace, or before executing an implementation plan`
   - verification-before-completion: `Use when about to claim work is complete, fixed, or passing, or before committing or opening a PR`
-- [ ] **Step 2: Run the validator** (`tests/schema-validator/run-validator.sh`, expect 4 OK).
+- [x] **Step 2: Run the validator** (`tests/schema-validator/run-validator.sh`, expect 4 OK).
 - [ ] **Step 3: Re-run triggering** for these 5 skills plus `run-all.sh` for regressions. Each must pass at least as often as the baseline. If one regresses, adjust its keywords (not a workflow summary) and re-run, at most 2 iterations; if it still regresses, revert that description and log why.
-- [ ] **Step 4: Commit:** `feat(skills): trigger-only descriptions for five skills`
+- [x] **Step 4: Commit:** `feat(skills): trigger-only descriptions for five skills` (`e2bfbc8`)
 
 ### Task 3: Bootstrap trim and de-escalation (findings 2 and 3)
 
 **Files:** `skills/using-bearpaws/SKILL.md`, plus `tests/antigravity/run-adapter-tests.sh` only if its asserted strings move
 
-- [ ] **Step 1: Draft the trimmed bootstrap.** Target ≤450 words (roughly half) as a first step toward the 200-word guideline. Keep, in this order: the subagent-stop line; the core rule; the per-agent process lines (Claude Code, Antigravity, other Agent Skills agents); the Red Flags table (tuned, keep verbatim); Pace Control ending in "**Momentum does not waive gates.**" (the adapter test asserts it); skill priority; and the lazy-load contract. Condense the Brevity Policy to at most 4 bullets, keeping its "Never compress" items. Drop the "Skill types" section only if its content lives in the process skills. Replace shouting with calm directives, for example: "If a skill might apply, invoke it before responding — including before clarifying questions. Skills override default behavior; user instructions override skills." Keep `<warning level="hard">` semantics, but without all-caps.
-- [ ] **Step 2: Verify static checks:** validator (4 OK), `tests/antigravity/run-adapter-tests.sh` (Pace Control, Red Flag, Antigravity step, no `activate_skill`), and `CLAUDE_PLUGIN_ROOT=$PWD hooks/session-start | python3 -m json.tool`.
+- [x] **Step 1: Draft the trimmed bootstrap.** Target ≤450 words (roughly half) as a first step toward the 200-word guideline. Keep, in this order: the subagent-stop line; the core rule; the per-agent process lines (Claude Code, Antigravity, other Agent Skills agents); the Red Flags table (tuned, keep verbatim); Pace Control ending in "**Momentum does not waive gates.**" (the adapter test asserts it); skill priority; and the lazy-load contract. Condense the Brevity Policy to at most 4 bullets, keeping its "Never compress" items. Drop the "Skill types" section only if its content lives in the process skills. Replace shouting with calm directives, for example: "If a skill might apply, invoke it before responding — including before clarifying questions. Skills override default behavior; user instructions override skills." Keep `<warning level="hard">` semantics, but without all-caps.
+- [x] **Step 2: Verify static checks:** validator (4 OK), `tests/antigravity/run-adapter-tests.sh` (Pace Control, Red Flag, Antigravity step, no `activate_skill`), and `CLAUDE_PLUGIN_ROOT=$PWD hooks/session-start | python3 -m json.tool`.
 - [ ] **Step 3: Re-run every harness** from Task 1 Steps 4–5 under the same isolation. Acceptance:
   - Triggering and explicit-request pass counts are ≥ the Task 1 baseline.
   - The fast test passes.
@@ -67,22 +67,22 @@
   - Judge dispatching-parallel-agents (flaky at baseline) over ≥3 runs.
   
   If triggering regresses, restore the specific removed element that plausibly caused it (not all of them) and re-run, at most 2 iterations. If it still regresses, report BLOCKED with the evidence.
-- [ ] **Step 4: Commit:** `feat(bootstrap): halve using-bearpaws and drop aggressive emphasis`
+- [x] **Step 4: Commit:** `feat(bootstrap): halve using-bearpaws and drop aggressive emphasis` (`bdeb875`)
 
 ### Task 4: Brainstorming commit step (finding 5)
 
 **Files:** `skills/brainstorming/SKILL.md` (the "Write design doc" step only)
 
 - [ ] **Step 1: RED.** In a temp git repo with one file, run `claude -p` (isolated, with `--plugin-dir`) with a prompt that completes a tiny brainstorm in one turn: "Design is approved as-is: a CLI flag --quiet that suppresses stdout. Write the design doc now." Use `--max-turns 6`. Check the stream-json for a `git commit` Bash call made without the user asking. Record it.
-- [ ] **Step 2: Edit the step** to: `**Write design doc** — save to docs/bearpaws/plans/YYYY-MM-DD-{topic}-design.md (user prefs override). Commit it if the user or project allows commits without asking; otherwise leave it uncommitted and say so.`
+- [x] **Step 2: Edit the step** to: `**Write design doc** — save to docs/bearpaws/plans/YYYY-MM-DD-{topic}-design.md (user prefs override). Commit it if the user or project allows commits without asking; otherwise leave it uncommitted and say so.`
 - [ ] **Step 3: GREEN.** Re-run the Step 1 scenario and record whether an unrequested commit still happens. Also re-run the brainstorming triggering test.
-- [ ] **Step 4: Commit:** `fix(brainstorming): respect harness commit policy for design docs`
+- [x] **Step 4: Commit:** `fix(brainstorming): respect commit policy for design docs` (`a2bf8ee`)
 
 ### Task 5: Release notes and final verification
 
-- [ ] **Step 1: Append to `docs/bearpaws/release-notes/2.3.0.md`** a "Skill content" section. List the five findings, with before/after numbers from the Evidence log (bootstrap words and tokens, triggering pass counts, over-trigger counts).
+- [x] **Step 1: Append to `docs/bearpaws/release-notes/2.3.0.md`** a "Skill content" section. List the five findings, with before/after numbers from the Evidence log (bootstrap words and tokens, triggering pass counts, over-trigger counts). Post-trim behavioral counts are explicitly unavailable because Claude usage is exhausted.
 - [ ] **Step 2: Run** the validator, the install tests, the adapter tests (`PATH=/usr/bin:/bin` if node is broken), `measure.sh`, `bump-version.sh --check`, and the fast Claude test.
-- [ ] **Step 3: Commit:** `docs(release-notes): skill content enhancements with eval evidence`
+- [x] **Step 3: Commit:** `docs(release-notes): skill content enhancements with eval evidence`
 
 ---
 
@@ -112,3 +112,20 @@ The four new skills (finishing-a-development-branch, receiving-code-review, usin
 | What is 17 * 23? Reply with the number only. | 0 | 0 |
 | What does the acronym HTTP stand for? | 0 | 0 |
 
+### Resumption (2026-09-29, behavioral checks pending)
+
+The five Task 2 descriptions are edited but uncommitted. The validator passes all four checks, and a direct frontmatter check confirms each starts with `Use when`. The Task 3 bootstrap draft is also uncommitted: 911 → 440 words; injected `additionalContext` 6334 → 3161 bytes. The validator, Antigravity adapter tests, installer tests, version check, hook JSON parse, and `git diff --check` pass. A follow-up plan check restored the rigid/flexible skill distinction and placed skill priority before lazy-load guidance.
+
+The triggering harness produced 0/13 because `claude auth status` reports `loggedIn: false`; each agent response was `Not logged in · Please run /login`. These are invalid behavioral results, not regressions. Explicit-request, fast Claude, over-trigger, and the Claude CLI version of Task 4 still require sign-in. The Homebrew Node binary remains broken (`libsimdjson.29.dylib` missing), but the bundled Node v24.19.0 at `/Users/brandon/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node` runs and can be placed first on `PATH` for the integration test.
+
+**Task 4 Codex pressure scenario.** In fresh, isolated temp repos with only a README and an initial commit, two fresh agents read the brainstorming skill and received the same request: “Design is approved as-is: a CLI flag --quiet that suppresses stdout. Write the design doc now.” RED (old `Commit.` step): the agent committed the design doc as `777d704` without a commit request. GREEN (conditional commit step): the agent wrote and self-reviewed the design doc, ran `git diff --check`, and left it uncommitted because neither the request nor project allowed commits without asking. This tests the behavior on Codex; the planned Claude CLI scenario remains pending.
+
+**Recovered Task 2 Claude results.** Saved stream-json logs from 12:43–12:45 EDT ran after the five description files were edited at 12:43:31. Each of the five skills triggered in two runs (10/10), and each init event listed exactly the checkout's `bp@inline` plugin. A subsequent `run-all.sh` began with six passes, then the CLI hit its session limit at 12:50 (the remaining seven results are invalid). The full post-change triggering suite and Task 3 bootstrap checks therefore remain pending.
+
+### Closeout decision and static verification (2026-09-29)
+
+The user clarified that Claude usage is exhausted and asked to continue based on the existing Bearpaws usage and evidence. The original plan's live Claude re-runs remain unchecked and **not run**: the full Task 2 suite, Task 3 triggering/explicit/over-trigger/fast checks, the Claude CLI Task 4 RED/GREEN scenario, and the Task 5 fast Claude check. The earlier valid 10/10 targeted description triggers and the fresh Codex RED/GREEN design-doc scenario are the behavioral evidence available for these edits. No post-trim Claude behavior claim is made. The long subagent-driven-development integration test also remains unverified in this environment.
+
+Final static checks passed: schema validator (4 checks), installer tests, Antigravity adapter tests (with bundled Node v24.19.0 first on PATH), token measurement (440 bootstrap words and 3161 injected-context bytes), version check (2.3.0), hook JSON parse, and git diff --check. The Red Flags table is byte-for-byte unchanged from pre-enhancement commit `30ab1bc`.
+
+Skill changes were committed separately as `e2bfbc8`, `bdeb875`, and `a2bf8ee`. The unchecked live-test steps above remain a recorded verification limit, not passing results.
