@@ -143,7 +143,7 @@ Status: Experimental.
 
 - Skills: OpenCode scans `.agents/skills/` and `~/.agents/skills/` and invokes them with its native `skill` tool. It enforces the Agent Skills frontmatter rules (name `^[a-z0-9]+(-[a-z0-9]+)*$`, ≤64 chars, equals folder; description 1–1024 chars), which `tests/schema-validator/run-validator.sh` checks in CI.
 - Bootstrap: `"instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"]` in `~/.config/opencode/opencode.json`. The installer prints this line and never edits user config.
-- Evidence: smoke test 2026-09-28, OpenCode 1.18.29: skills discovered from a symlinked `.agents/skills` (pass); bootstrap loaded via a `~`-prefixed `instructions` path, confirmed against a no-`instructions` control run that could not answer (pass).
+- Evidence: smoke test 2026-09-28, OpenCode 1.18.29: skills discovered from `.agents/skills` (pass; tested with the earlier directory-symlink layout); bootstrap loaded via a `~`-prefixed `instructions` path, confirmed against a no-`instructions` control run that could not answer (pass).
 - Known limitations: no OpenCode tool-name mapping reference; Claude Code tool names (`Agent`, `Skill`) in skills are interpreted by the model.
 
 ## Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …)

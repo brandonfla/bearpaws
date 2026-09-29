@@ -77,7 +77,7 @@ Never hand-edit a version in one manifest — `--check` will flag the drift and 
 ## Tests
 
 ```bash
-tests/schema-validator/run-validator.sh                                       # verify XML tag whitelist and adversarial gates
+tests/schema-validator/run-validator.sh                                       # verify XML tag whitelist, Agent Skills frontmatter, .agents/skills links, and adversarial gates
 tests/install/run-install-tests.sh                                            # verify Antigravity and --agents installer
 tests/antigravity/run-adapter-tests.sh                                        # verify Antigravity adapter static assertions
 tests/claude-code/run-skill-tests.sh                                          # fast Claude skill-content tests (~2 min)
@@ -118,7 +118,7 @@ Constraints worth knowing before editing frontmatter:
 - Frontmatter total ≤ 1024 chars; `name` is letters/numbers/hyphens only.
 - Heavy reference material (>100 lines) and reusable scripts go in sibling files; keep `SKILL.md` focused on the rule.
 
-See [docs/skill-structure.md](docs/skill-structure.md), [skills/writing-skills/SKILL.md](skills/writing-skills/SKILL.md), and [skills/writing-skills/anthropic-best-practices.md](skills/writing-skills/anthropic-best-practices.md) for the full conventions. All skill bodies use a compact XML-like structure — the validator at [tests/schema-validator/run-validator.sh](tests/schema-validator/run-validator.sh) enforces the tag whitelist on every commit.
+See [docs/skill-structure.md](docs/skill-structure.md), [skills/writing-skills/SKILL.md](skills/writing-skills/SKILL.md), and [skills/writing-skills/anthropic-best-practices.md](skills/writing-skills/anthropic-best-practices.md) for the full conventions. All skill bodies use a compact XML-like structure — the validator at [tests/schema-validator/run-validator.sh](tests/schema-validator/run-validator.sh) enforces the tag whitelist, frontmatter spec, and `.agents/skills` layout on every commit.
 
 ## Commit conventions
 
