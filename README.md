@@ -99,6 +99,12 @@ Restart your agent and invoke `using-bearpaws` (`skill` tool in OpenCode, `$usin
 "instructions": ["~/.agents/skills/using-bearpaws/SKILL.md"]
 ```
 
+**Codex bootstrap:** add this line to `~/.codex/AGENTS.md` so Codex loads the bootstrap every session:
+
+```text
+Before responding to any request, read `~/.agents/skills/using-bearpaws/SKILL.md` and follow it.
+```
+
 Other agents load `using-bearpaws` when it is invoked or matched by its description. Devin CLI sessions in this repo also get it from `.devin/hooks.v1.json`.
 
 Links point into your clone: `git pull` updates skills; moving or deleting the clone breaks them. Uninstall (run from the clone):
