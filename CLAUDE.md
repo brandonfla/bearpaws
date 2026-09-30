@@ -38,7 +38,7 @@ Skills cover TDD, debugging, planning, code review, and parallel execution, plus
 | Claude Code | Primary | Working |
 | Google Antigravity IDE | Primary | Native plugin, skills, subagents, and capability adapter |
 | OpenCode | Experimental | Smoke-tested: native `.agents/skills` discovery + `instructions` bootstrap |
-| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Codex smoke-tested; others rely on native `.agents/skills` discovery |
+| Other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) | Experimental | Codex passes the conformance smoke (discovery, explicit load, auto-trigger, risk gate) with the `AGENTS.md` bootstrap; others rely on native `.agents/skills` discovery |
 
 ## How the bootstrap works
 
