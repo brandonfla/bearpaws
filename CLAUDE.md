@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Bearpaws is an independent, low-token skills toolkit for AI coding agents, with a focus on portability, simplicity, and practical agent support.
 
-Claude Code and Google Antigravity IDE are the primary supported targets. OpenCode and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless a specific workflow has been validated. Avoid adding language that implies ongoing upstream tracking, upstream behavioral parity, or guaranteed support across every agent.
+Claude Code and Google Antigravity IDE are the primary supported targets. OpenCode, Grok Build, and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless a specific workflow has been validated. Avoid adding language that implies ongoing upstream tracking, upstream behavioral parity, or guaranteed support across every agent.
 
 Skills cover TDD, debugging, planning, code review, and parallel execution, plus a stack-agnostic onboarding skill. The plugin's job is to get the `using-bearpaws` bootstrap into the agent context so the agent learns to discover and invoke the rest of the skills.
 
@@ -52,7 +52,7 @@ The plugin manifest [.claude-plugin/plugin.json](.claude-plugin/plugin.json) reg
 
 1. Reads [skills/using-bearpaws/SKILL.md](skills/using-bearpaws/SKILL.md). Fails loudly (exit 1, stderr) if the file is missing/empty/unreadable rather than emitting a garbage bootstrap silently.
 2. Wraps it in a `<warning level="hard">` block (per the current XML-like skill structure convention).
-3. Emits JSON in the platform-appropriate shape — Claude Code: `{ "hookSpecificOutput": { "hookEventName": "SessionStart", "additionalContext": "..." } }`; Cursor: top-level `additional_context`; Devin CLI, Copilot CLI, and unknown SDK-style callers: top-level `additionalContext`.
+3. Emits JSON in the platform-appropriate shape — Claude Code: `{ "hookSpecificOutput": { "hookEventName": "SessionStart", "additionalContext": "..." } }`; Devin CLI (`DEVIN_PROJECT_DIR` or `DEVIN_PLUGIN_ROOT`): the same nested `hookSpecificOutput` shape; Cursor: top-level `additional_context`; Copilot CLI and unknown SDK-style callers: top-level `additionalContext`. [tests/hooks/run-hook-tests.sh](tests/hooks/run-hook-tests.sh) pins each shape.
 
 [hooks/run-hook.cmd](hooks/run-hook.cmd) is a bash/cmd polyglot so the same file works on macOS/Linux and Windows. Hook scripts under [hooks/](hooks/) are intentionally **extensionless** — Claude Code's Windows auto-detection prepends `bash` to anything ending in `.sh`, which would double-wrap the call.
 

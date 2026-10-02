@@ -4,7 +4,7 @@
 
 BearPaws separates difficulty from danger. A change can be easy to implement and still expensive to get wrong. Elevated-risk changes get stronger testing, independent review, and verification requirements before they can be called complete. Low-risk work stays lightweight, however large it is.
 
-Claude Code and Google Antigravity IDE are the primary supported targets. OpenCode and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless a specific workflow has been validated. See [Attribution](#attribution) for the project's origin and license.
+Claude Code and Google Antigravity IDE are the primary supported targets. OpenCode, Grok Build, and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless a specific workflow has been validated. See [Attribution](#attribution) for the project's origin and license.
 
 ## Difficulty is not danger
 
@@ -151,7 +151,13 @@ Other principles:
 
 - **Deliberate.** Planning and implementation stay separate where that improves reliability. In Claude Code, your plan approval hands off to execution after the plan is saved, with no second confirmation.
 - **Context-efficient.** Skills and references load only when needed. See [Design principles](#design-principles-why-the-architecture-is-lightweight).
-- **Harness-independent.** Skills define the methodology. Adapters map it onto each agent's native capabilities.
+- **Harness-independent.** Skills define the methodology. Adapters map it onto each agent's native capabilities. The bootstrap reaches each agent in the way it supports:
+  - a SessionStart hook (Claude Code, Copilot CLI, Cursor, Devin CLI);
+  - a plugin rule (Antigravity);
+  - a rules file the installer writes (Grok Build);
+  - a one-line instruction you add (Codex, OpenCode).
+
+  `tests/harness-wiring/` checks this wiring without calling a model.
 
 ## BearPaws vs. Superpowers
 

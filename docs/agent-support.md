@@ -222,7 +222,7 @@ Do not add a full per-agent trigger matrix unless the maintenance cost is explic
 Recommended public posture:
 
 - Claude Code and Google Antigravity IDE are primary supported targets.
-- OpenCode and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless and until validated.
+- OpenCode, Grok Build, and other Agent Skills agents (Codex, Devin, Cursor, Copilot, …) are experimental unless and until validated.
 - Bearpaws is an independent skills toolkit that evolves on its own cadence.
 - Attribution and MIT license compliance remain.
 
