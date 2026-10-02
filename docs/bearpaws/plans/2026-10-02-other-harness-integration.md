@@ -1,6 +1,6 @@
 # Other-Harness Integration: Scope, Implementation, and Test Plan
 
-**Status:** Draft (not approved)
+**Status:** Partially implemented in 2.5.0 (see Outcome at the end)
 **Date:** 2026-10-02
 **Goal:** Make Bearpaws' non-primary harness support (Codex, OpenCode, Devin CLI, Cursor, Copilot CLI) *provable*: every wired path has an automated test, every claim in `docs/agent-support.md` has evidence, and each harness has a clear route to either promotion or explicit "skills-only" status.
 
@@ -246,3 +246,22 @@ tests/conformance/run.sh opencode /tmp/bearpaws-tests/opencode/<fresh>   # after
 - **Refactor breaking Codex evidence (Task 3.2).** Mitigated by the unchanged offline tests plus one live before/after run.
 - **Payload wording change (Task 2.2) degrading Claude Code.** Mitigated: the Claude branch is golden-file locked.
 - **Scope creep into per-harness skill rewrites.** Hard stop, per the Adapter Policy: "If an agent cannot consume Bearpaws without parsing and changing the inner skill body, stop and reassess."
+
+---
+
+## Outcome (2.5.0, 2026-10-02)
+
+Scope added after drafting: Grok Build. No harness was promoted.
+
+| Gap | Result |
+|---|---|
+| G1 hook shapes untested | Done: `tests/hooks/run-hook-tests.sh` (CI) |
+| G2 Cursor/Copilot branches unreachable | Cursor: added `.cursor-plugin/` (mirrors upstream; not run in Cursor). Copilot: installs from `.claude-plugin` (checked in CI); hook run not observed (login required) |
+| G3 Devin hook dev-only | Documented; user projects use the `AGENTS.md` line. Payload changed to Devin's documented nested shape. No root `hooks.json` (Copilot also reads it) |
+| G4 Claude wording in non-Claude payloads | Deferred: needs a live RED/GREEN eval |
+| G5 tool mapping | Deferred: conditional on live C6/C9 failures |
+| G6 offline suites not in CI | Done. Fixed two suites that could not pass (Antigravity `((x++))`, validator locale) |
+| G7 Codex live conformance | Blocked: no OpenAI credentials in this environment. Model-free wiring check added instead |
+| G8 Codex-only runner | Partly done: `tests/harness-wiring/run.sh` covers Codex, OpenCode, Copilot, and Grok without a model. Live drivers are still Codex-only |
+
+Phase 1 spike findings (S1–S4) are recorded in `docs/agent-support.md`. Live runs still owed are listed in the 2.5.0 release notes under "Not verified".
