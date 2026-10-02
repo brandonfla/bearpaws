@@ -1,6 +1,7 @@
 {
   "name": "bp",
-  "description": "An independent low-token Claude Code skills library for TDD, debugging, planning, code review, and parallel execution.",
+  "displayName": "Bearpaws",
+  "description": "An independent low-token skills library for TDD, debugging, planning, code review, and parallel execution.",
   "version": "2.5.0",
   "author": {
     "name": "Brandon Fitzgerald",
@@ -11,9 +12,10 @@
   "license": "MIT",
   "keywords": [
     "skills",
-    "claude-code",
     "tdd",
     "debugging",
     "code-review"
-  ]
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks-cursor.json"
 }
