@@ -284,6 +284,96 @@ else
   fail "missing jq: expected exit 0, empty stdout, stderr note"
 fi
 
+# Bash edits: a git tree fingerprint, compared with the last `tree` line in the log.
+mkrepo() { # <name> [--empty]: temp git repo (one commit unless --empty); prints its path
+  local r="$TMP_ROOT/repo-$1"; mkdir -p "$r"
+  git -C "$r" init -q && git -C "$r" config user.email t@t && git -C "$r" config user.name t
+  [ "${2:-}" = --empty ] || { echo one >"$r/a.py"; git -C "$r" add a.py && git -C "$r" commit -qm init; }
+  echo "$r"
+}
+bashc() { # <cwd>
+  gate record "$(jq -cn --arg s "$SID" --arg c "$1" \
+    '{session_id:$s,cwd:$c,tool_name:"Bash",tool_input:{command:"x"}}')"
+}
+nbash() { [ -f "$(logfile)" ] || { echo 0; return; }; grep -cxF 'edit (bash)' "$(logfile)" || true; }
+expect_bash_edits() { # <label> <count>
+  if [ "$(nbash)" = "$2" ]; then echo "OK: $1"; else fail "$1: expected $2 'edit (bash)' line(s), got $(nbash): $(cat "$(logfile)" 2>/dev/null)"; fi
+}
+
+R="$(mkrepo 1)"
+reset; bashc "$R"; expect "bash baseline: allow" allow; expect_bash_edits "first Bash call is a baseline, not an edit" 0
+grep -q '^tree ' "$(logfile)" && echo "OK: baseline logs a tree line" || fail "baseline logged no tree line"
+cat >"$R/new.py" <<'EOT'
+print("written by heredoc")
+EOT
+bashc "$R"; expect_bash_edits "Bash heredoc write is an edit" 1
+stop "Done."; expect "Bash edit without receipt: block" block "risk receipt"
+bashc "$R"; expect_bash_edits "unchanged tree adds no second edit" 1
+reset; bashc "$R"; stop "Done."; expect "tree lines alone are not edits: allow" allow
+
+R="$(mkrepo 2)"
+reset; bashc "$R"
+mkdir -p "$R/__pycache__" "$R/.pytest_cache" "$R/node_modules/p" "$R/.venv/lib" "$R/pkg/__pycache__"
+echo x >"$R/__pycache__/x.pyc"; echo x >"$R/.pytest_cache/v"; echo x >"$R/node_modules/p/i.js"
+echo x >"$R/.venv/lib/z"; echo x >"$R/pkg/__pycache__/y.cpython.pyc"; echo x >"$R/stray.pyc"
+bashc "$R"; expect_bash_edits "cache dirs and .pyc are not edits" 0
+echo real >"$R/real.py"; bashc "$R"; expect_bash_edits "a real new file next to caches is an edit" 1
+
+R="$(mkrepo 3)"
+reset; echo two >"$R/a.py"; editc "$R" a.py; review; bashc "$R"
+stop "$ELEVATED"; expect "Edit, review, Bash with no change (pytest): allow" allow
+
+R="$(mkrepo 4)"
+reset; echo two >"$R/a.py"; editc "$R" a.py; review; echo fixed >"$R/a.py"; bashc "$R"
+stop "$ELEVATED"; expect "Edit, review, Bash sed -i, COMPLETE: block" block "independent review"
+review; stop "$ELEVATED"; expect "re-review after the Bash fix: allow" allow
+
+R="$(mkrepo 4b)"
+reset; echo two >"$R/a.py"; editc "$R" a.py
+[ "$(grep -c '^tree ' "$(logfile)")" = 1 ] && echo "OK: Edit appends a tree line" || fail "Edit did not append a tree line"
+bashc "$R"; expect_bash_edits "Bash right after Edit: tree already fresh, no edit" 0
+
+R="$(mkrepo 4c)"
+reset; bashc "$R"; echo y >"$R/n.py"; bashc "$R"; stop "$ROUTINE"; expect "'edit (bash)' with a routine receipt: no nudge" allow
+
+PLAIN="$TMP_ROOT/plain"; mkdir -p "$PLAIN"
+reset; bashc "$PLAIN"; echo x >"$PLAIN/f"; bashc "$PLAIN"
+expect "non-git cwd: rc 0, no output" allow; expect_bash_edits "non-git cwd never records edit (bash)" 0
+[ -e "$(logfile)" ] && fail "non-git cwd wrote a log: $(cat "$(logfile)")" || echo "OK: non-git cwd writes no log"
+
+R="$(mkrepo 6)"
+reset; bashc "$R"; rm -rf "$R"; bashc "$R"
+expect "cwd removed between calls: rc 0, no output" allow; expect_bash_edits "cwd removed: no edit" 0
+R="$(mkrepo 6b)"
+reset; bashc "$R"; echo garbage >"$R/.git/HEAD"; echo y >"$R/n.py"; bashc "$R"
+expect "corrupted .git: rc 0, no output" allow; expect_bash_edits "corrupted .git: no edit" 0
+
+R="$(mkrepo 7 --empty)"
+reset; bashc "$R"; expect_bash_edits "no-commit repo: baseline is not an edit" 0
+echo x >"$R/f.py"; bashc "$R"; expect_bash_edits "no-commit repo: new file is an edit" 1
+git -C "$R" add f.py; bashc "$R"; expect_bash_edits "no-commit repo: staging moves the file into the diff, one more edit" 2
+bashc "$R"; expect_bash_edits "no-commit repo: unchanged adds nothing" 2
+
+R="$(mkrepo 8)"
+printf 'aaaa' >"$R/u.txt"; reset; bashc "$R"
+printf 'bbbb' >"$R/u.txt"; touch -t 203001010000 "$R/u.txt"; bashc "$R"
+expect_bash_edits "untracked same-size change with a new mtime is an edit" 1
+# Known limit: untracked content is not hashed, only size and mtime, so a same-size change in the same second is missed.
+touch -t 203001010001 "$R/u.txt"; bashc "$R"; n=$(nbash)
+printf 'cccc' >"$R/u.txt"; touch -t 203001010001 "$R/u.txt"; bashc "$R"
+expect_bash_edits "known limit: same-size, same-mtime untracked change is missed" "$n"
+
+# Performance (reported, not asserted): 20 Bash record calls on a repo with 200 files.
+R="$(mkrepo 9)"
+for i in $(seq 1 200); do echo "$i" >"$R/f$i.txt"; done
+git -C "$R" add -A f1*.txt 2>/dev/null; git -C "$R" commit -qm many
+for i in $(seq 1 100); do echo "$i" >"$R/u$i.txt"; done
+reset; bashc "$R"
+t0=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
+for i in $(seq 1 20); do bashc "$R"; done
+t1=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
+echo "PERF: 20 Bash record calls, 200 files: mean $(( (t1 - t0) / 20 )) ms"
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures risk-gate test(s) failed"
   exit 1

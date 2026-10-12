@@ -127,7 +127,7 @@ for event, mode in (("PostToolUse", "record"), ("Stop", "stop")):
     hook = entry["hooks"][0]
     assert hook["command"] == f'"${{CLAUDE_PLUGIN_ROOT}}/hooks/run-hook.cmd" risk-gate {mode}', hook["command"]
     assert hook.get("timeout") == 10, (event, hook.get("timeout"))
-assert claude["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write|MultiEdit|NotebookEdit|Agent|Task"
+assert claude["hooks"]["PostToolUse"][0]["matcher"] == "Edit|Write|MultiEdit|NotebookEdit|Bash|Agent|Task"
 assert "matcher" not in claude["hooks"]["Stop"][0]
 cursor = json.load(open(f"{root}/hooks/hooks-cursor.json"))
 assert cursor["version"] == 1
