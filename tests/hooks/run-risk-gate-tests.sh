@@ -21,9 +21,11 @@ gate() {
     bash "$GATE" "$mode" >"$TMP_ROOT/out" 2>"$TMP_ROOT/err" || rc=$?
   echo "$rc" >"$TMP_ROOT/rc"
 }
-reset() { rm -f "$TMP_ROOT/data/risk-gate/$SID.log" "$TMP_ROOT/data/risk-gate/$SID.tree"; }
+reset() { rm -f "$TMP_ROOT/data/risk-gate/$SID.log" "$TMP_ROOT/data/risk-gate/$SID".*.tree; }
 logfile() { echo "$TMP_ROOT/data/risk-gate/$SID.log"; }
-treefile() { echo "$TMP_ROOT/data/risk-gate/$SID.tree"; }
+# The state file is per repo: <session>.<first 12 hex of sha1(toplevel)>.tree. treefile: the first one that exists.
+treefile() { local f; for f in "$TMP_ROOT/data/risk-gate/$SID".*.tree; do [ -e "$f" ] && { echo "$f"; return; }; done; echo "$TMP_ROOT/data/risk-gate/$SID.none.tree"; }
+treefor() { echo "$TMP_ROOT/data/risk-gate/$SID.$(printf '%s' "$(git -C "$1" rev-parse --show-toplevel)" | shasum | cut -c1-12).tree"; }
 edit() { # <path> [VAR=value ...]
   local p="$1"; shift
   gate record "$(jq -cn --arg s "$SID" --arg p "$p" \
@@ -285,7 +287,7 @@ else
   fail "missing jq: expected exit 0, empty stdout, stderr note"
 fi
 
-# Bash edits: a git tree fingerprint, compared with the last `tree` line in the log.
+# Bash edits: a per-repo git tree fingerprint, compared with the one stored in <session>.<repo>.tree.
 mkrepo() { # <name> [--empty]: temp git repo (one commit unless --empty); prints its path
   local r="$TMP_ROOT/repo-$1"; mkdir -p "$r"
   git -C "$r" init -q && git -C "$r" config user.email t@t && git -C "$r" config user.name t
@@ -396,7 +398,8 @@ stop "Done."; expect "gap: Bash edit in a later turn needs a receipt" block "ris
 
 # The .tree file gets the same owner-only and no-symlink treatment as the log.
 R="$(mkrepo 16)"
-mkdir -p "$TMP_ROOT/symtree/data/risk-gate"; ln -s "$TMP_ROOT/symtree/target" "$TMP_ROOT/symtree/data/risk-gate/$SID.tree"
+mkdir -p "$TMP_ROOT/symtree/data/risk-gate"
+ln -s "$TMP_ROOT/symtree/target" "$TMP_ROOT/symtree/data/risk-gate/${TF_NAME:=$(basename "$(treefor "$R")")}"
 gate record "$(jq -cn --arg s "$SID" --arg c "$R" '{session_id:$s,cwd:$c,tool_name:"Bash",tool_input:{command:"x"}}')" "CLAUDE_PLUGIN_DATA=$TMP_ROOT/symtree/data"
 if [ "$(cat "$TMP_ROOT/rc")" != 0 ]; then fail "symlinked .tree: hook exited $(cat "$TMP_ROOT/rc")"
 elif [ -e "$TMP_ROOT/symtree/target" ]; then fail "symlinked .tree: hook wrote through the symlink"
@@ -435,6 +438,60 @@ done
 R="$(mkrepo 22)"; reset
 gate baseline "$(jq -cn --arg s "$SID" --arg c "$R" '{session_id:$s,cwd:$c,tool_name:"Bash"}')" BEARPAWS_ENFORCE=0
 [ -e "$(treefile)" ] && fail "baseline ignored BEARPAWS_ENFORCE=0" || echo "OK: BEARPAWS_ENFORCE=0 disables baseline"
+
+# C1: the fingerprint is toplevel-relative and keyed per repo, so cd and worktrees are not edits.
+R="$(mkrepo 30)"; mkdir -p "$R/sub/deep"
+reset; bashc "$R"; bashc "$R/sub"; bashc "$R/sub/deep"; bashc "$R"
+expect_bash_edits "cd into a subdir with no change is not an edit" 0
+R="$(mkrepo 31)"; mkdir -p "$R/sub"
+reset; bashc "$R"; echo n >"$R/top.py"; bashc "$R/sub"
+expect_bash_edits "an edit at the root seen from a subdir cwd is an edit" 1
+R="$(mkrepo 32)"; WT="$TMP_ROOT/wt-32"
+git -C "$R" worktree add -q "$WT" -b wt32 2>/dev/null
+reset; bashc "$R"; bashc "$WT"; bashc "$R"; bashc "$WT"; bashc "$R"
+expect_bash_edits "alternating main checkout and worktree with no change: no edit" 0
+[ "$(ls "$TMP_ROOT/data/risk-gate/$SID".*.tree | wc -l | tr -d ' ')" = 2 ] && echo "OK: one state file per repo" || fail "expected 2 .tree files"
+prec "$R"; prec "$WT"; echo w >"$WT/only-in-wt.py"; bashc "$WT"
+expect_bash_edits "worktree edit after its own baseline is detected" 1
+R="$(mkrepo 33)"; WT="$TMP_ROOT/wt-33"; git -C "$R" worktree add -q "$WT" -b wt33 2>/dev/null
+reset; bashc "$R"; echo w >"$WT/first.py"; bashc "$WT"
+expect_bash_edits "known limit: a worktree's first Bash call with no baseline only baselines" 0
+# Another repo's state does not leak: the edit at B is not an edit in A.
+R="$(mkrepo 34)"; R2="$(mkrepo 35)"
+reset; bashc "$R"; bashc "$R2"; echo z >"$R2/z.py"; bashc "$R"
+expect_bash_edits "an edit in repo B is not seen from repo A" 0
+bashc "$R2"; expect_bash_edits "the same edit is seen from repo B" 1
+
+# I1: file names that look like stat options must not blind the fingerprint.
+R="$(mkrepo 36)"
+for n in -f -n --help "with space"; do echo one >"$R/$n"; done
+reset; bashc "$R"; touch -t 203001010000 "$R/-f"; bashc "$R"
+expect_bash_edits "a file named -f does not blind detection" 1
+touch -t 203001010001 "$R/--help"; bashc "$R"; expect_bash_edits "a file named --help changes are detected" 2
+touch -t 203001010002 "$R/with space"; bashc "$R"; expect_bash_edits "a file name with a space is detected" 3
+touch -t 203001010003 "$R/-n"; bashc "$R"; expect_bash_edits "a file named -n is detected" 4
+R="$(mkrepo 37)"; echo n >"$R/-f"; reset; bashc "$R"; echo new >"$R/real.py"; bashc "$R"
+expect_bash_edits "a new file next to a file named -f is detected" 1
+
+# I2: unambiguous test artifacts are not edits; dist/, build/, coverage/ are.
+R="$(mkrepo 38)"
+reset; echo two >"$R/a.py"; editc "$R" a.py; review
+mkdir -p "$R/htmlcov" "$R/.hypothesis" "$R/.tox/x" "$R/.nox" "$R/pkg.egg-info"
+echo x >"$R/.coverage"; echo x >"$R/.coverage.host.123"; echo x >"$R/htmlcov/x.html"; echo x >"$R/.hypothesis/h"
+echo x >"$R/.tox/x/y"; echo x >"$R/.nox/n"; echo x >"$R/.eslintcache"; echo x >"$R/pkg.egg-info/PKG-INFO"
+bashc "$R"; stop "$ELEVATED"; expect "coverage, hypothesis, tox, nox, eslintcache, egg-info after a review: allow" allow
+for d in dist build coverage; do
+  R="$(mkrepo 39-$d)"; reset; echo two >"$R/a.py"; editc "$R" a.py; review; mkdir -p "$R/$d"; echo x >"$R/$d/o"; bashc "$R"
+  stop "$ELEVATED"; expect "$d/ output counts as an edit (no .gitignore)" block "independent review"
+done
+
+# M2: no temp files are left next to the state file.
+R="$(mkrepo 40)"; reset; bashc "$R"; echo y >"$R/n.py"; bashc "$R"
+[ -z "$(ls "$TMP_ROOT/data/risk-gate" | grep -E '\.tree\.[0-9]+$' || true)" ] && echo "OK: no temp files left by the atomic .tree write" || fail "temp file left: $(ls "$TMP_ROOT/data/risk-gate")"
+
+# M4: a git failure after rev-parse works is a failure, not an empty list.
+R="$(mkrepo 41)"; reset; bashc "$R"; echo garbage >"$R/.git/index"; echo y >"$R/n.py"; bashc "$R"
+expect "corrupt index: rc 0, no output" allow; expect_bash_edits "ls-files failure is not hashed as an empty tree" 0
 
 # Performance (reported, not asserted): 20 Bash record calls on a repo with 200 files.
 R="$(mkrepo 9)"
