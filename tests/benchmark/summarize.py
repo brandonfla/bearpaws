@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 
 # The one evaluator for held-out checkers (accept, attack) and the visible suite, used by run.sh and
@@ -295,6 +295,13 @@ def summarize(paths):
         accepted = sum(r["accepted"] for r in group)
         per = f"{sum(counts) / accepted:.0f}" if accepted else "n/a"
         print(f"{arm:<20} {counts[0]:>10} {counts[1]:>10} {counts[2]:>12} {counts[3]:>12} {per:>16}")
+
+    if any(r.get("skills") for r in rows):
+        print("\nSkills by arm (runs that invoked each skill / n)")
+        for arm in sorted({r["arm"] for r in rows}):
+            group = [r for r in rows if r["arm"] == arm]
+            used = Counter(s for r in group for s in set(r.get("skills") or []))
+            print(f"  {arm}: " + ", ".join(f"{s} {used[s]}/{len(group)}" for s in sorted(used)))
 
     flagged = [r for r in rows if r["tests_touched"]]
     if flagged:
