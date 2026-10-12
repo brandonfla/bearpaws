@@ -2,7 +2,7 @@
 # Risk gate for Claude Code. Blocks ending a turn with pending edits and no
 # risk receipt, and elevated-risk work marked COMPLETE without an independent
 # review dispatched after the last edit.
-# Modes: record (PostToolUse), stop (Stop). Bash edits are detected by a git tree fingerprint logged as "tree <sha>" lines. The log holds edits not yet accepted by a receipt:
+# Modes: record (PostToolUse), stop (Stop). Bash edits are detected by a git tree fingerprint kept in <session_id>.tree, which accepted stops do not clear. The log holds edits not yet accepted by a receipt:
 # a stop that allows clears it, except elevated INCOMPLETE work with no review, which stays pending (also across turns and background-agent report-backs).
 # Design: docs/bearpaws/plans/2026-10-11-risk-gate-design.md
 # tests/hooks/run-risk-gate-tests.sh pins every rule.
@@ -26,42 +26,43 @@ sid="$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null)"
 [[ "$sid" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || exit 0
 dir="${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}}/risk-gate"
 log="$dir/$sid.log"
+tree="$dir/$sid.tree"
 # The fallback may be a shared temp dir: owner-only, and refuse a dir or log someone else planted.
 umask 077
-mkdir -p "$dir" 2>/dev/null && [ -O "$dir" ] && [ ! -L "$dir" ] && [ ! -L "$log" ] || exit 0
+mkdir -p "$dir" 2>/dev/null && [ -O "$dir" ] && [ ! -L "$dir" ] && [ ! -L "$log" ] && [ ! -L "$tree" ] || exit 0
 
 # ponytail: path-name heuristic, one nudge per pending batch; replace with a project-declared list if false positives annoy.
 SENSITIVE='auth|login|session|token|passw|credential|secret|crypt|permission|acl|polic|payment|billing|invoice|money|price|migrat|schema|sql'
 LEAD='^[[:space:]>*_#0-9.`-]*'
 TRAIL='[*_`]*'
 
-# Tree fingerprint of the git work tree at $1: SHA-1 of the diff against HEAD (the empty tree before the first commit)
-# plus path, size and mtime of every untracked, non-cache file. Fails (returns 1) outside git, with no sha tool, or on any git error.
-# ponytail: untracked content is not hashed, so a same-size edit within one mtime second is missed; hash content if that bites.
+# Tree fingerprint of the git work tree at $1: SHA-1 of path, size and sub-second mtime of every tracked or untracked,
+# non-ignored, non-cache file. It reads neither the index nor HEAD, so git add and git commit leave it unchanged.
+# The list is sorted: git lists untracked files after tracked ones, so staging would reorder it. A deleted tracked file drops out of the list and changes it. Fails (returns 1) outside git or with no sha tool.
+# ponytail: content is not hashed, so a same-size edit inside one mtime tick is missed; hash content if that bites.
 fingerprint() {
-  local cwd="$1" base=HEAD sha d u
+  local cwd="$1" sha
   if command -v shasum >/dev/null 2>&1; then sha=shasum; elif command -v sha1sum >/dev/null 2>&1; then sha=sha1sum; else return 1; fi
-  export GIT_OPTIONAL_LOCKS=0
   git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
-  git -C "$cwd" rev-parse --verify -q HEAD >/dev/null 2>&1 || base=4b825dc642cb6eb9a060e54bf8d69288fbee4904
-  d="$(git -C "$cwd" diff "$base" --no-ext-diff --no-color 2>/dev/null && echo ok)"
-  [ "${d%ok}" != "$d" ] || return 1
-  # Paths come from the repo root (":/") but are relative to $cwd, so stat runs from there. GNU stat -c first: BSD rejects -c.
-  u="$(cd "$cwd" 2>/dev/null && git ls-files -o --exclude-standard -z -- ':/' 2>/dev/null | tr '\0' '\n' \
-    | { grep -vE '(^|/)(__pycache__|\.pytest_cache|node_modules|\.mypy_cache|\.ruff_cache|\.venv)(/|$)|\.pyc$' || true; } | tr '\n' '\0' \
-    | { stat -c %s / >/dev/null 2>&1 && xargs -0 stat -c '%n %s %Y' || xargs -0 stat -f '%N %z %m'; } 2>/dev/null || true)"
-  { printf '%s' "$d"; printf '%s' "$u"; } | $sha | cut -d' ' -f1
+  # Paths come from the repo root (":/") but are relative to $cwd, so stat runs from there.
+  # stat: GNU -c with %.9Y (checked first: BSD rejects -c), else BSD %Fm (fractional seconds), else whole seconds.
+  (cd "$cwd" 2>/dev/null && git ls-files -co --exclude-standard -z -- ':/' 2>/dev/null | tr '\0' '\n' \
+    | { grep -vE '(^|/)(__pycache__|\.pytest_cache|node_modules|\.mypy_cache|\.ruff_cache|\.venv)(/|$)|\.pyc$' || true; } | LC_ALL=C sort | tr '\n' '\0' \
+    | { if stat -c %s / >/dev/null 2>&1; then xargs -0 stat -c '%n %s %.9Y'
+        elif stat -f %Fm / >/dev/null 2>&1; then xargs -0 stat -f '%N %z %Fm'
+        else xargs -0 stat -f '%N %z %m'; fi; } 2>/dev/null || true) | $sha | cut -d' ' -f1
 }
-# Log the tree fingerprint after a recorded tool. A Bash call that changed it is an edit; with no earlier tree it only sets the baseline.
+# Store the fingerprint in $tree (kept across accepted stops, unlike the log). A Bash call that changed it is an edit;
+# with no earlier fingerprint it only sets the baseline.
 track_tree() { # <cwd> <tool>
   local fp last
   [ -n "$1" ] && fp="$(fingerprint "$1")" && [ -n "$fp" ] || return 0
-  last="$(grep '^tree ' "$log" 2>/dev/null | tail -1)"
+  last="$(cat "$tree" 2>/dev/null)"
   if [ "$2" = Bash ]; then
-    [ "$last" = "tree $fp" ] && return 0
+    [ "$last" = "$fp" ] && return 0
     [ -n "$last" ] && echo 'edit (bash)' >>"$log"
   fi
-  echo "tree $fp" >>"$log"
+  printf '%s\n' "$fp" >"$tree"
 }
 
 block() { jq -cn --arg r "$1" '{decision: "block", reason: $r}'; exit 0; }

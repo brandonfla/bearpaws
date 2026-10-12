@@ -21,8 +21,9 @@ gate() {
     bash "$GATE" "$mode" >"$TMP_ROOT/out" 2>"$TMP_ROOT/err" || rc=$?
   echo "$rc" >"$TMP_ROOT/rc"
 }
-reset() { rm -f "$TMP_ROOT/data/risk-gate/$SID.log"; }
+reset() { rm -f "$TMP_ROOT/data/risk-gate/$SID.log" "$TMP_ROOT/data/risk-gate/$SID.tree"; }
 logfile() { echo "$TMP_ROOT/data/risk-gate/$SID.log"; }
+treefile() { echo "$TMP_ROOT/data/risk-gate/$SID.tree"; }
 edit() { # <path> [VAR=value ...]
   local p="$1"; shift
   gate record "$(jq -cn --arg s "$SID" --arg p "$p" \
@@ -302,7 +303,8 @@ expect_bash_edits() { # <label> <count>
 
 R="$(mkrepo 1)"
 reset; bashc "$R"; expect "bash baseline: allow" allow; expect_bash_edits "first Bash call is a baseline, not an edit" 0
-grep -q '^tree ' "$(logfile)" && echo "OK: baseline logs a tree line" || fail "baseline logged no tree line"
+[ -s "$(treefile)" ] && echo "OK: baseline stores the fingerprint in the .tree file" || fail "baseline wrote no .tree file"
+grep -q '^tree ' "$(logfile)" 2>/dev/null && fail "tree line leaked into the log" || echo "OK: log holds no tree lines"
 cat >"$R/new.py" <<'EOT'
 print("written by heredoc")
 EOT
@@ -330,7 +332,7 @@ review; stop "$ELEVATED"; expect "re-review after the Bash fix: allow" allow
 
 R="$(mkrepo 4b)"
 reset; echo two >"$R/a.py"; editc "$R" a.py
-[ "$(grep -c '^tree ' "$(logfile)")" = 1 ] && echo "OK: Edit appends a tree line" || fail "Edit did not append a tree line"
+[ -s "$(treefile)" ] && echo "OK: Edit refreshes the .tree file" || fail "Edit did not write the .tree file"
 bashc "$R"; expect_bash_edits "Bash right after Edit: tree already fresh, no edit" 0
 
 R="$(mkrepo 4c)"
@@ -339,7 +341,7 @@ reset; bashc "$R"; echo y >"$R/n.py"; bashc "$R"; stop "$ROUTINE"; expect "'edit
 PLAIN="$TMP_ROOT/plain"; mkdir -p "$PLAIN"
 reset; bashc "$PLAIN"; echo x >"$PLAIN/f"; bashc "$PLAIN"
 expect "non-git cwd: rc 0, no output" allow; expect_bash_edits "non-git cwd never records edit (bash)" 0
-[ -e "$(logfile)" ] && fail "non-git cwd wrote a log: $(cat "$(logfile)")" || echo "OK: non-git cwd writes no log"
+[ -e "$(logfile)" ] || [ -e "$(treefile)" ] && fail "non-git cwd wrote state" || echo "OK: non-git cwd writes no state"
 
 R="$(mkrepo 6)"
 reset; bashc "$R"; rm -rf "$R"; bashc "$R"
@@ -351,8 +353,8 @@ expect "corrupted .git: rc 0, no output" allow; expect_bash_edits "corrupted .gi
 R="$(mkrepo 7 --empty)"
 reset; bashc "$R"; expect_bash_edits "no-commit repo: baseline is not an edit" 0
 echo x >"$R/f.py"; bashc "$R"; expect_bash_edits "no-commit repo: new file is an edit" 1
-git -C "$R" add f.py; bashc "$R"; expect_bash_edits "no-commit repo: staging moves the file into the diff, one more edit" 2
-bashc "$R"; expect_bash_edits "no-commit repo: unchanged adds nothing" 2
+git -C "$R" add f.py; bashc "$R"; expect_bash_edits "no-commit repo: git add is not an edit" 1
+bashc "$R"; expect_bash_edits "no-commit repo: unchanged adds nothing" 1
 
 R="$(mkrepo 8)"
 printf 'aaaa' >"$R/u.txt"; reset; bashc "$R"
@@ -362,6 +364,39 @@ expect_bash_edits "untracked same-size change with a new mtime is an edit" 1
 touch -t 203001010001 "$R/u.txt"; bashc "$R"; n=$(nbash)
 printf 'cccc' >"$R/u.txt"; touch -t 203001010001 "$R/u.txt"; bashc "$R"
 expect_bash_edits "known limit: same-size, same-mtime untracked change is missed" "$n"
+
+# Index- and HEAD-independent fingerprint: git add / git commit are not edits; content, size-preserving and delete edits are.
+R="$(mkrepo 10)"
+reset; bashc "$R"; echo n >"$R/new.py"; bashc "$R"; git -C "$R" add -A; bashc "$R"
+expect_bash_edits "Bash git add -A after an edit adds no edit" 1
+R="$(mkrepo 11)"
+reset; echo two >"$R/a.py"; editc "$R" a.py; git -C "$R" add -A; bashc "$R"
+expect_bash_edits "Edit then Bash git add -A: no edit (bash)" 0
+R="$(mkrepo 12)"
+reset; echo two >"$R/a.py"; editc "$R" a.py; review; git -C "$R" commit -qam x; bashc "$R"
+stop "$ELEVATED"; expect "Edit, review, Bash git commit -am, COMPLETE: allow" allow
+R="$(mkrepo 13)"
+reset; bashc "$R"; echo two >"$R/a.py"; bashc "$R"
+expect_bash_edits "same-size rewrite of a tracked file is detected via mtime" 1
+R="$(mkrepo 14)"
+reset; bashc "$R"; rm "$R/a.py"; bashc "$R"
+expect_bash_edits "deleting a tracked file is an edit" 1
+
+# The fingerprint survives an accepted stop (which removes the log), so the next turn's first Bash call is not just a baseline.
+R="$(mkrepo 15)"
+reset; echo two >"$R/a.py"; editc "$R" a.py; stop "$ROUTINE"; expect "gap: routine receipt accepts" allow
+[ -e "$(logfile)" ] && fail "gap: accepted stop left the log" || echo "OK: gap: accepted stop removed the log"
+[ -s "$(treefile)" ] && echo "OK: accepted stop keeps the .tree file" || fail "accepted stop removed the .tree file"
+echo heredoc >"$R/b.py"; bashc "$R"; expect_bash_edits "gap: first Bash call of the next turn detects the edit" 1
+stop "Done."; expect "gap: Bash edit in a later turn needs a receipt" block "risk receipt"
+
+# The .tree file gets the same owner-only and no-symlink treatment as the log.
+R="$(mkrepo 16)"
+mkdir -p "$TMP_ROOT/symtree/data/risk-gate"; ln -s "$TMP_ROOT/symtree/target" "$TMP_ROOT/symtree/data/risk-gate/$SID.tree"
+gate record "$(jq -cn --arg s "$SID" --arg c "$R" '{session_id:$s,cwd:$c,tool_name:"Bash",tool_input:{command:"x"}}')" "CLAUDE_PLUGIN_DATA=$TMP_ROOT/symtree/data"
+if [ "$(cat "$TMP_ROOT/rc")" != 0 ]; then fail "symlinked .tree: hook exited $(cat "$TMP_ROOT/rc")"
+elif [ -e "$TMP_ROOT/symtree/target" ]; then fail "symlinked .tree: hook wrote through the symlink"
+else echo "OK: symlinked .tree is refused"; fi
 
 # Performance (reported, not asserted): 20 Bash record calls on a repo with 200 files.
 R="$(mkrepo 9)"
@@ -373,6 +408,14 @@ t0=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0
 for i in $(seq 1 20); do bashc "$R"; done
 t1=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
 echo "PERF: 20 Bash record calls, 200 files: mean $(( (t1 - t0) / 20 )) ms"
+R="$(mkrepo 17)"
+for i in $(seq 1 5000); do echo "$i" >"$R/f$i.txt"; done
+git -C "$R" add -A; git -C "$R" commit -qm many
+reset; bashc "$R"
+t0=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
+for i in $(seq 1 20); do bashc "$R"; done
+t1=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
+echo "PERF: 20 Bash record calls, 5000 files: mean $(( (t1 - t0) / 20 )) ms"
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures risk-gate test(s) failed"
