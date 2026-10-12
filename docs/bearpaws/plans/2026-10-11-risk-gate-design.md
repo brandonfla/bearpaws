@@ -98,7 +98,7 @@ Wording changes follow `bp:writing-skills`: first a baseline run without the rec
 - Files named like tests but holding production code are treated as tests.
 - SendMessage reviews count by `summary` only; a re-review requested only in the `message` body is not seen.
 - The sensitive-path nudge cannot see Bash-edited paths, since `edit (bash)` carries none.
-- Other writers count as the agent's. A background reviewer's Bash runs, background builds, and the user's editor saving files can all change the fingerprint and register as an `edit (bash)` after a review.
+- Other writers count as the agent's. A background reviewer's Bash runs, background builds, and the user's editor saving files can all change the fingerprint and register as an `edit (bash)` after a review. This includes any untracked, non-ignored file that keeps growing, such as a log or a tool's output file inside the repo. Each later Bash call then registers an edit and forces another review. A live probe hit exactly this when its own stream output was written inside the repo. Keep such files gitignored or outside the work tree.
 - `.tree` files, and logs of sessions that end with edits pending, are never cleaned up.
 - Anything that rewrites files counts as an edit, for example `git checkout`, `git stash` or a formatter that touches mtimes. Staging and committing do not.
 - Background agents. Edits a background subagent makes after the controller ends its turn stay pending across turns until a receipt accepts them, so its report-back turn is judged (this closes the final-review FM-1 gap). The consequence: edits stay pending until a receipt accepts them, so a Q&A turn right after an unreceipted edit also needs a receipt.
