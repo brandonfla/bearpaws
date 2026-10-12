@@ -396,14 +396,21 @@ reset; echo two >"$R/a.py"; editc "$R" a.py; stop "$ROUTINE"; expect "gap: routi
 echo heredoc >"$R/b.py"; bashc "$R"; expect_bash_edits "gap: first Bash call of the next turn detects the edit" 1
 stop "Done."; expect "gap: Bash edit in a later turn needs a receipt" block "risk receipt"
 
-# The .tree file gets the same owner-only and no-symlink treatment as the log.
+# The .tree file gets the same no-symlink treatment as the log: the planted link survives, still points at its
+# original target, and the target is untouched. (Without the guard, mv -f would replace the link with a file.)
 R="$(mkrepo 16)"
 mkdir -p "$TMP_ROOT/symtree/data/risk-gate"
-ln -s "$TMP_ROOT/symtree/target" "$TMP_ROOT/symtree/data/risk-gate/${TF_NAME:=$(basename "$(treefor "$R")")}"
-gate record "$(jq -cn --arg s "$SID" --arg c "$R" '{session_id:$s,cwd:$c,tool_name:"Bash",tool_input:{command:"x"}}')" "CLAUDE_PLUGIN_DATA=$TMP_ROOT/symtree/data"
-if [ "$(cat "$TMP_ROOT/rc")" != 0 ]; then fail "symlinked .tree: hook exited $(cat "$TMP_ROOT/rc")"
-elif [ -e "$TMP_ROOT/symtree/target" ]; then fail "symlinked .tree: hook wrote through the symlink"
-else echo "OK: symlinked .tree is refused"; fi
+echo original >"$TMP_ROOT/symtree/target"
+SYMTREE="$TMP_ROOT/symtree/data/risk-gate/$(basename "$(treefor "$R")")"
+ln -s "$TMP_ROOT/symtree/target" "$SYMTREE"
+for m in baseline record; do
+  if [ $m = baseline ]; then gate baseline "$(jq -cn --arg s "$SID" --arg c "$R" '{session_id:$s,cwd:$c,tool_name:"Bash"}')" "CLAUDE_PLUGIN_DATA=$TMP_ROOT/symtree/data"
+  else gate record "$(jq -cn --arg s "$SID" --arg c "$R" '{session_id:$s,cwd:$c,tool_name:"Bash",tool_input:{command:"x"}}')" "CLAUDE_PLUGIN_DATA=$TMP_ROOT/symtree/data"; fi
+  if [ "$(cat "$TMP_ROOT/rc")" != 0 ]; then fail "symlinked .tree ($m): hook exited $(cat "$TMP_ROOT/rc")"
+  elif [ ! -L "$SYMTREE" ] || [ "$(readlink "$SYMTREE")" != "$TMP_ROOT/symtree/target" ]; then fail "symlinked .tree ($m): the planted link was replaced"
+  elif [ "$(cat "$TMP_ROOT/symtree/target")" != original ]; then fail "symlinked .tree ($m): hook wrote through the symlink"
+  else echo "OK: symlinked .tree is refused ($m)"; fi
+done
 
 # PreToolUse `baseline`: take the fingerprint before the first Bash call, so a first-ever heredoc write is seen.
 R="$(mkrepo 18)"
