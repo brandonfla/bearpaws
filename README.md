@@ -122,17 +122,16 @@ A fully specified small fix goes straight to TDD and verification; plans are for
 
 ## How Bearpaws differs from Superpowers
 
-Bearpaws began as a fork of [Superpowers](https://github.com/obra/superpowers), and the core discipline is shared: brainstorm, plan, test first, debug systematically, review, verify. The main differences are how much process a change gets and how the end of a change is checked. The table lists those and a few smaller ones, compared against Superpowers 6.4.2.
+Bearpaws began as a fork of [Superpowers](https://github.com/obra/superpowers), and the core discipline is shared: brainstorm, plan, test first, debug systematically, review, verify. The main differences are how much process a change gets and how the end of a change is checked. The table lists those and a few smaller ones.
 
 | | Superpowers 6.4.2 | Bearpaws |
 |---|---|---|
 | What sets the amount of process | Scope: the agent classifies a request as spike, bounded, or architectural and says so, so the human can override | Scope and blast radius, as two separate axes |
-| Small but risky changes | No separate risk tier. Risk is one input to choosing the reviewer's model, and a security-sensitive action stops execution to ask the human | A fixed floor for auth, secrets, money, data deletion or migration, untrusted input reaching paths, SQL, shell or deserialization, concurrency, and public APIs or schemas: pinned behavior, a failing test first, a narrow diff, stated assumptions, independent review |
+| Small but risky changes | No separate risk tier. Risk is one input to choosing the reviewer's model, and a security-sensitive action stops execution to ask the human | A fixed floor for [elevated-risk changes](#difficulty-is-not-danger): pinned behavior, failing test first, narrow diff, stated assumptions, independent review |
 | Finishing a change | Verify before claiming done | Verify, then end every reply that changed files with a risk receipt (`Risk`, `Verified`, `Status`) |
 | Findings from review | Critical and Important findings go through a fix loop with re-review. Minor ones are logged for the final review | The same, plus: a same-risk defect found in the changed code is part of the fix even if it falls outside the request, or the work ends `INCOMPLETE` |
-| How the rules are applied | Instructions to the agent | Instructions, plus a Claude Code hook that sends the agent back when a reply that edited files has no receipt, or when elevated work is marked COMPLETE without a review after the last edit |
+| How the rules are applied | Instructions to the agent | Instructions, plus a Claude Code hook (see [Show me](#show-me)) |
 | Getting to know a project | Part of brainstorming | A separate onboarding step that runs first |
-| Supported agents | Install instructions for Claude Code, Antigravity, Codex, Cursor, Gemini CLI, Copilot CLI, OpenCode, and about ten more | Claude Code and Google Antigravity; others experimental |
 | Trade-off | No added process for risk, so no added cost for it | Similar cost on routine work in the 2026-09-30 run; more time and cost on elevated work, for pinned tests, failing-first tests and reviews |
 
 Measured results, including where Bearpaws did no better, are in [Evidence](#evidence).
