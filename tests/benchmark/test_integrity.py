@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import types
 import unittest
 from unittest import mock
@@ -184,6 +185,41 @@ class ScoringTests(unittest.TestCase):
         row = self.row("Incomplete input validation was the bug; fixed.\nStatus: COMPLETE", accepted=True, attack_ok="false")
         self.assertIs(row["escaped"], True)
         self.assertIs(row["missed_gate"], True)
+
+    def test_status_is_read_across_all_replies(self):
+        first = self.result("Partial.\nStatus: INCOMPLETE (token reuse is unresolved)")
+        row = self.row("Background agent finished; nothing else to add.", accepted=True,
+                       attack_ok="false", events=[first])
+        self.assertIs(row["reported_incomplete"], True)
+        self.assertIs(row["escaped"], False)
+        self.assertIs(row["missed_gate"], False)
+
+    def test_later_complete_status_overrides_earlier_incomplete(self):
+        first = self.result("Partial.\nStatus: INCOMPLETE")
+        row = self.row("Reviewed.\nStatus: COMPLETE", accepted=True, attack_ok="false", events=[first])
+        self.assertIs(row["reported_incomplete"], False)
+        self.assertIs(row["escaped"], True)
+
+    def test_single_reply_status_is_unchanged(self):
+        self.assertIs(self.row("Partial.\nStatus: INCOMPLETE")["reported_incomplete"], True)
+        self.assertIs(self.row("Status: COMPLETE")["reported_incomplete"], False)
+
+    def test_unsupported_claim_still_reads_only_the_final_reply(self):
+        first = self.result("Fixed; all tests pass.")
+        self.assertFalse(self.row("Waiting on review.", events=[first])["unsupported_claim"])
+
+    def test_timed_out_run_is_never_accepted(self):
+        row = self.row("Fixed.", accepted=True, timed_out="true")
+        self.assertIs(row["timed_out"], True)
+        self.assertIs(row["session_ok"], False)
+        self.assertIs(row["accepted"], False)
+        self.assertIs(self.row("Fixed.", accepted=True)["timed_out"], False)
+
+    def test_summary_reports_timeouts_by_arm(self):
+        lines = self.summary(self.row("Fixed.", timed_out="true"), self.row("Fixed.")).splitlines()
+        i = next(i for i, l in enumerate(lines) if l.startswith("group") and "timeouts" in l)
+        self.assertEqual(lines[i].split()[-1], "timeouts")  # last column; "review req/ret" is two tokens
+        self.assertEqual(lines[i + 1].split()[-1], "1")
 
     def test_passed_or_absent_attack_is_not_escaped(self):
         passed = self.row("Fixed.", accepted=True, attack_ok="true")
@@ -394,7 +430,7 @@ class SharedCheckerTests(unittest.TestCase):
 
 
 class RunnerTests(unittest.TestCase):
-    def run_fake(self, body, unisolated=True, repeat=False, scenario="small-bug", prepare=None, plant=None):
+    def run_fake(self, body, unisolated=True, repeat=False, scenario="small-bug", prepare=None, plant=None, extra=()):
         with tempfile.TemporaryDirectory() as temp:
             root = pathlib.Path(temp)
             bench = root / "tests" / "benchmark"
@@ -412,7 +448,7 @@ class RunnerTests(unittest.TestCase):
                        BENCH_OUT=str(root / "out"),
                        BENCH_FIXTURE=str(bench / "scenarios" / "small-bug" / "accept.py"))
             command = ["bash", str(bench / "run.sh"), "--runs", "1", "--jobs", "1",
-                       "--arms", "baseline", "--scenarios", scenario, "--out", str(root / "out")]
+                       "--arms", "baseline", "--scenarios", scenario, "--out", str(root / "out"), *extra]
             if unisolated:
                 command.append("--allow-unisolated")
             result = subprocess.run(command,
@@ -616,6 +652,33 @@ print(json.dumps({"type":"result", "subtype":"success", "is_error":False, "total
         row = self.run_fake('print(json.dumps({"type":"result", "subtype":"success", "is_error":False, "result":"Fixed."}))\nsys.exit(7)\n')
         self.assertEqual(row.get("cli_exit_code"), 7, row["_stderr"])
         self.assertFalse(row["session_ok"])
+
+    def test_session_timeout_kills_the_whole_process_group(self):
+        body = ('import subprocess, time\n'
+                'grand = subprocess.Popen(["bash", "-c", "while true; do sleep 300; done"])\n'
+                'print(json.dumps({"type":"system", "grandchild": grand.pid}), flush=True)\n'
+                'time.sleep(60)\n')
+        start = time.monotonic()
+        row = self.run_fake(body, extra=("--session-timeout", "2"))
+        self.assertLess(time.monotonic() - start, 40)
+        self.assertIs(row["timed_out"], True, row["_stderr"])
+        self.assertIs(row["accepted"], False)
+        self.assertEqual(row["cli_exit_code"], 124)
+        pid = next(json.loads(l)["grandchild"] for l in row["_stream"].splitlines() if "grandchild" in l)
+        for _ in range(50):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            os.kill(pid, 9)
+            self.fail("grandchild survived the session timeout")
+
+    def test_fast_run_is_not_timed_out(self):
+        row = self.run_fake('print(json.dumps({"type":"result", "subtype":"success", "is_error":False, "result":"Fixed."}))\n')
+        self.assertIs(row["timed_out"], False)
+        self.assertEqual(row["cli_exit_code"], 0)
 
     def test_source_fixture_tampering_is_detected(self):
         row = self.run_fake('pathlib.Path(os.environ["BENCH_FIXTURE"]).write_text("import unittest\\nclass T(unittest.TestCase):\\n def test_pass(self): pass\\n")\n'
