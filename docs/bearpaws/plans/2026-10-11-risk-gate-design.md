@@ -29,12 +29,16 @@ State: one log per session, holding the edits not yet accepted by a receipt, at 
 
 | Mode | Event | Behavior |
 |---|---|---|
-| `record` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit\|NotebookEdit\|Agent\|Task`) | Append `edit <path>` (relative to the hook input's `cwd`) or `review` (an Agent/Task call whose `subagent_type` contains `review` at a word boundary, or whose `description` starts with `review`, case-insensitive; only code, spec, final, security, independent, quality, plan, design, or re may precede it, and the description must not be followed by fix, feedback, comment, finding, or follow; never the `prompt`). Subagent edits count too. Paths under `$HOME/.claude/`, `$HOME/.claude.json`, or `$CLAUDE_CONFIG_DIR/` (for example `~/.claude-team` when that variable is set) are Claude's own config, memory, and plan files and are not recorded. Lookalike project directories such as `~/.claude-work/` or `~/.clauderc-project/` are recorded. |
+| `record` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent\|Task`) | Append `edit <path>` (relative to the hook input's `cwd`) or `review` (an Agent/Task call whose `subagent_type` contains `review` at a word boundary, or whose `description` starts with `review`, case-insensitive; only code, spec, final, security, independent, quality, plan, design, or re may precede it, and the description must not be followed by fix, feedback, comment, finding, or follow; never the `prompt`). Subagent edits count too. Paths under `$HOME/.claude/`, `$HOME/.claude.json`, or `$CLAUDE_CONFIG_DIR/` (for example `~/.claude-team` when that variable is set) are Claude's own config, memory, and plan files and are not recorded. Lookalike project directories such as `~/.claude-work/` or `~/.clauderc-project/` are recorded. After every recorded tool except an Agent/Task call, the hook also logs a tree fingerprint (below). |
 | `stop` | `Stop` | Apply the gate below to `last_assistant_message` and the log. |
 
-### 2. Gate rules (`stop` mode)
+**Bash recording: the tree fingerprint.** The `Bash` tool can edit files (`sed -i`, heredocs, `git apply`) without a path in the hook input, so `record` fingerprints the work tree at the input's `cwd` after every Edit, Write, MultiEdit, NotebookEdit and Bash call, and logs it as a `tree <sha>` line. It runs only when `git -C "$cwd" rev-parse --is-inside-work-tree` succeeds and `shasum` or `sha1sum` exists; otherwise, and on any git error, it records nothing and exits 0. The fingerprint is the SHA-1 of the `git diff HEAD --no-ext-diff --no-color` output (against the empty tree before the first commit) plus the path, size and mtime of each untracked, non-ignored file (`stat -c` on GNU, `stat -f` on BSD). Paths with a component `__pycache__`, `.pytest_cache`, `node_modules`, `.mypy_cache`, `.ruff_cache` or `.venv`, and paths ending `.pyc`, are left out, so a test run is not an edit.
 
-Read the log in order. `edited` means at least one `edit` line. `reviewed` means a `review` line appears after the last `edit` line, so a review that predates a later edit does not count (same rule as Codex C4).
+- Edit, Write, MultiEdit, NotebookEdit: log `edit <path>` as before, then `tree <sha>`.
+- Bash: if the fingerprint differs from the last `tree` line, log `edit (bash)` then `tree <sha>`; if it is the same, log nothing; if there is no earlier `tree` line, log only `tree <sha>` as a baseline, never an edit.
+- `stop` ignores `tree` lines. The sensitive-path nudge reads `(bash)` as a path and does not match it.
+
+Read the log in order. `edited` means at least one `edit` line, `edit (bash)` included. `reviewed` means a `review` line appears after the last `edit` line, so a review that predates a later edit does not count (same rule as Codex C4). A fix made through Bash after a review is an `edit (bash)`, so it needs a new review.
 
 1. Not `edited` → allow.
 2. No receipt line `Risk: routine|elevated` → block: "Edits are pending without a risk receipt. End with one: Risk: routine or Risk: elevated (surface), then Verified and Status lines (...). See bp:verification-before-completion." The line may carry a permissive prefix and suffix (`LEAD`/`TRAIL`: list markers, `>`, `#`, `*`, `_`, backticks), and the value may be wrapped in `*`, `_`, or backticks.
@@ -78,7 +82,12 @@ Wording changes follow `bp:writing-skills`: first a baseline run without the rec
 - That "Pinned" and "Failing first" are true. Evals check those from tool order. The hook only checks that the receipt exists, that a review happened, and that the classification looks plausible.
 - Whether an asynchronous review returned. A dispatch after the last edit is enough for the gate. The bootstrap's "not returned → INCOMPLETE" rule stays instruction-only. Upgrade path: record `SubagentStop` for reviewer agents.
 - Other harnesses. They get the receipt as instruction only.
-- Edits made through the Bash tool (`sed -i`, redirects, `git apply`) are not recorded.
+- Bash edits outside git work trees, or when `shasum`/`sha1sum` is missing or git fails. They are not recorded.
+- The baseline gap. The first Bash call after a log starts, which includes the first call after an accepted stop clears the log, only sets the baseline. A Bash edit before any recorded tool, or as the first tool of a later turn, goes unseen.
+- Untracked files are fingerprinted by path, size and mtime, not content. A same-size change within one mtime second is missed.
+- Excluded cache paths (`__pycache__`, `.pytest_cache`, `node_modules`, `.mypy_cache`, `.ruff_cache`, `.venv`, `*.pyc`) are never edits, even if an agent writes real work there.
+- The sensitive-path nudge cannot see Bash-edited paths, since `edit (bash)` carries none.
+- Fingerprint changes without a file edit count as edits: `git add` or `git commit` moves content between the diff and the untracked list or HEAD, so it can force one extra review.
 - Background agents. Edits a background subagent makes after the controller ends its turn stay pending across turns until a receipt accepts them, so its report-back turn is judged (this closes the final-review FM-1 gap). The consequence: edits stay pending until a receipt accepts them, so a Q&A turn right after an unreceipted edit also needs a receipt.
 - Unreviewed elevated work marked INCOMPLETE stays pending for the rest of the session. Every later reply needs a receipt until a review is dispatched, or the agent reclassifies to routine after the nudge.
 - Rule 2 checks only the `Risk:` line; `Verified:` and `Status:` are required by the skill text, not the hook.
