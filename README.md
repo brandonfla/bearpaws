@@ -120,18 +120,22 @@ A fully specified small fix goes straight to TDD and verification; plans are for
 | `bp:using-git-worktrees` | Process | Isolate feature work in git worktrees |
 | `bp:writing-skills` | Process | Write and test skills with RED/GREEN evals |
 
-## Bearpaws vs Superpowers
+## How Bearpaws differs from Superpowers
 
-| | Superpowers 6.4.2 | Bearpaws |
+Bearpaws began as a fork of [Superpowers](https://github.com/obra/superpowers), and the core discipline is shared: brainstorm, plan, test first, debug systematically, review, verify. Bearpaws differs in two ways: how much process a change gets, and how the end of a change is checked.
+
+| | Superpowers | Bearpaws |
 |---|---|---|
-| Workflow scaling | The same rigorous workflow for every task | Scaled by complexity × risk |
-| Elevated-risk floor | No separate risk tier | Pinned behavior, failing test first, narrow diff, assumptions, independent review |
-| Enforcement | Instructions | Instructions, plus a Claude Code `Stop` hook |
-| Escaped defects (risk benchmark) | 12/30 | 9/30 (not significant, p = 0.59) |
-| Cost on risky work (risk benchmark) | $0.092 per task | $0.219 per task, about 2.4× |
-| Cost on routine work (2026-09-30 run) | $0.096 per task | $0.098 per task |
+| What sets the amount of process | Task size and complexity, plus the agent's judgment | Complexity and blast radius, as two separate axes |
+| Small but risky changes | Same workflow; risk informs how deeply to review | A fixed floor for auth, secrets, money, data deletion or migration, untrusted input reaching paths, SQL, shell or deserialization, concurrency, and public APIs or schemas: pinned behavior, a failing test first, a narrow diff, stated assumptions, independent review |
+| Finishing a change | Verify before claiming done | Verify, then end with a risk receipt (`Risk`, `Verified`, `Status`) |
+| Findings from review | Evaluated and applied | A same-risk defect found in the changed code is part of the fix, or the work ends `INCOMPLETE` |
+| How the rules are applied | Instructions to the agent | Instructions, plus a Claude Code hook that holds the reply until there is a receipt and, for elevated work, a review after the last edit |
+| Getting to know a project | Part of brainstorming | A separate onboarding step that runs first |
+| Supported agents | Claude Code, Codex, Cursor, Gemini CLI, OpenCode, and more | Claude Code and Google Antigravity; others experimental |
+| Trade-off | Consistent cost per task | About the same cost on routine work; more time and cost on elevated work, spent on reviews |
 
-Bearpaws began as a fork of [Superpowers](https://github.com/obra/superpowers), and its engineering discipline comes from there.
+Measured results, including where Bearpaws did no better, are in [Evidence](#evidence).
 
 ## Support status
 
