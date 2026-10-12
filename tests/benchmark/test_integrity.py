@@ -490,6 +490,42 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(result.returncode, 124)
         self.assertTrue(wait_gone(self.bgpid()), "setsid descendant survived the timeout")
 
+    def test_setsid_descendant_is_killed_after_a_normal_exit(self):
+        # A1: the child lingers past one 0.5 s poll, then exits 0, orphaning its setsid child to init.
+        code = ("import subprocess, time\n"
+                "p = subprocess.Popen(['sleep', '300'], start_new_session=True)\n"
+                f"open({str(self.pidfile)!r}, 'w').write(str(p.pid))\n"
+                "time.sleep(1.5)\n")
+        result = subprocess.run([*self.SUP, "60", "--", sys.executable, "-c", code], timeout=40)
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(wait_gone(self.bgpid()), "setsid descendant survived a normal exit")
+
+    def test_setsid_descendant_via_intermediate_is_killed_after_a_normal_exit(self):
+        # A2: the setsid process hangs off an intermediate that outlives the first poll.
+        inner = ("import subprocess, time\n"
+                 "p = subprocess.Popen(['sleep', '300'], start_new_session=True)\n"
+                 f"open({str(self.pidfile)!r}, 'w').write(str(p.pid))\n"
+                 "time.sleep(2.5)\n")
+        code = ("import subprocess, sys, time\n"
+                f"subprocess.Popen([sys.executable, '-c', {inner!r}])\n"
+                "time.sleep(1.5)\n")
+        result = subprocess.run([*self.SUP, "60", "--", sys.executable, "-c", code], timeout=40)
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(wait_gone(self.bgpid()), "setsid descendant via an intermediate survived a normal exit")
+
+    def test_kill_verified_skips_a_reused_pid_and_kills_a_matching_one(self):
+        me = os.getpid()
+        summarize.kill_verified({me: "Thu Jan  1 00:00:00 1970"})  # stale lstart: pid reuse, must not be killed
+        victim = subprocess.Popen(["sleep", "300"], start_new_session=True)
+        self.addCleanup(victim.kill)
+        summarize.kill_verified({victim.pid: summarize.process_table()[victim.pid][1]})
+        self.assertEqual(victim.wait(timeout=10), -signal.SIGKILL)
+
+    def test_unrunnable_command_exits_127_with_a_message(self):
+        result = subprocess.run([*self.SUP, "5", "--", "/nonexistent/claude"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 127)
+        self.assertIn("cannot run", result.stderr)
+
     def test_bad_arguments_print_usage_not_a_traceback(self):
         for args in (["abc", "--", "true"], ["0", "--", "true"], ["-5", "--", "true"], ["nan", "--", "true"],
                      ["5"], ["5", "--"], []):

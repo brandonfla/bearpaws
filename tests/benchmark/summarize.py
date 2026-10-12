@@ -15,6 +15,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 from collections import Counter, defaultdict
 
 
@@ -80,73 +81,119 @@ sys.exit(bad)
 '''
 
 
-def descendants(root):
-    """Pids below root (any session), from `ps -A -o pid=,ppid=` (BSD and GNU). Empty if ps fails."""
+def process_table():
+    """{pid: (ppid, lstart)} from `ps -A -o pid=,ppid=,lstart=` (BSD and GNU, LC_ALL=C). Empty if ps fails."""
     try:
-        out = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True).stdout
+        out = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,lstart="], capture_output=True, text=True,
+                             env=dict(os.environ, LC_ALL="C")).stdout
     except OSError:
-        return []
-    kids = defaultdict(list)
+        return {}
+    table = {}
     for line in out.splitlines():
-        parts = line.split()
-        if len(parts) == 2 and all(p.isdigit() for p in parts):
-            kids[int(parts[1])].append(int(parts[0]))
-    found, todo = [], [root]
+        parts = line.split(None, 2)
+        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+            table[int(parts[0])] = (int(parts[1]), " ".join(parts[2].split()))
+    return table
+
+
+def track_descendants(tracked, table):
+    """Add every descendant of a still-verified tracked pid to tracked {pid: lstart}; True if any are new."""
+    kids = defaultdict(list)
+    for pid, (ppid, _) in table.items():
+        kids[ppid].append(pid)
+    todo = [pid for pid, lstart in tracked.items() if pid in table and table[pid][1] == lstart]
+    new = False
     while todo:
         for pid in kids.get(todo.pop(), []):
-            found.append(pid)
+            if tracked.get(pid) != table[pid][1]:
+                tracked[pid] = table[pid][1]
+                new = True
             todo.append(pid)
-    return found
+    return new
 
 
-def kill_tree(child_pid, known=()):
-    """SIGKILL every descendant (including setsid escapees) and the whole process group.
+def signal_verified(tracked, sig):
+    """Send sig to tracked pids whose current lstart still matches (a mismatch is pid reuse: skipped)."""
+    table = process_table()
+    for pid, lstart in list(tracked.items()):
+        if pid in table and table[pid][1] == lstart:
+            try:
+                os.kill(pid, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
 
-    ponytail: a process that double-forks and is reparented to init/launchd before this runs, and
-    also called setsid, is unreachable; walking ps from child_pid cannot find it.
+
+def kill_verified(tracked):
+    """Freeze the tracked tree (SIGSTOP, up to 3 rounds, so nothing can spawn), then SIGKILL it.
+
+    ponytail: only processes seen alive during a poll are tracked. One that spawns and detaches
+    (or double-forks and is reparented) between two 0.5 s polls escapes; narrow the poll or use
+    cgroups/job objects if that matters.
     """
-    for pid in [*known, *descendants(child_pid)]:
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
-    try:
-        os.killpg(child_pid, signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
-        pass
+    for _ in range(3):
+        grew = track_descendants(tracked, process_table())
+        signal_verified(tracked, signal.SIGSTOP)
+        if not grew:
+            break
+    signal_verified(tracked, signal.SIGKILL)
+
+
+POLL = 0.5
 
 
 def supervise(seconds, argv):
     """Run argv in its own process group with a wall-clock limit; exit 124 on timeout.
 
     stdout/stderr are inherited, so run.sh's pipes into stream.jsonl/stderr.txt are unchanged. The
-    whole tree is killed on every exit path (timeout, normal exit, SIGINT/SIGTERM/SIGHUP), so
-    agent-spawned background loops cannot outlive the session or hold the pipes open.
+    tree is killed on every exit path (timeout, normal exit, SIGINT/SIGTERM/SIGHUP), so
+    agent-spawned background loops cannot outlive the session or hold the pipes open. Descendants
+    (including setsid ones) are recorded with their start time while the child runs, so they can
+    still be found and verified after the child exits and they are reparented to init.
     """
-    child = subprocess.Popen(argv, start_new_session=True)
-    seen = []
+    try:
+        child = subprocess.Popen(argv, start_new_session=True)
+    except OSError as e:
+        print(f"supervise: cannot run {argv[0]}: {e}", file=sys.stderr)
+        return 127
+    tracked = {}
+    entry = process_table().get(child.pid)
+    if entry:
+        tracked[child.pid] = entry[1]
 
     def on_signal(signum, _frame):
         raise SystemExit(128 + signum)
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, on_signal)
     try:
-        try:
-            code = child.wait(timeout=seconds)
-        except subprocess.TimeoutExpired:
-            seen = descendants(child.pid)
+        deadline = time.monotonic() + seconds
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
             try:
-                os.killpg(child.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-            try:
-                child.wait(timeout=10)
+                code = child.wait(timeout=min(POLL, remaining))
+                return code if code >= 0 else 128 - code
             except subprocess.TimeoutExpired:
-                pass
-            return 124
-        return code if code >= 0 else 128 - code
+                track_descendants(tracked, process_table())
+        # TERM goes to the group only: TERMing a tracked setsid spawner would orphan children it forks
+        # before dying, untracked. Those processes are frozen and killed in the finally instead.
+        try:
+            os.killpg(child.pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):  # macOS: EPERM when the group holds a zombie
+            pass
+        try:
+            child.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+        return 124
     finally:
-        kill_tree(child.pid, seen)
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, signal.SIG_IGN)
+        kill_verified(tracked)
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
         child.poll()
 
 
@@ -161,11 +208,7 @@ def supervise_main(args):
     except (ValueError, IndexError):
         print(SUPERVISE_USAGE, file=sys.stderr)
         return 2
-    try:
-        return supervise(seconds, args[2:])
-    except OSError as e:
-        print(f"supervise: cannot run {args[2]}: {e}", file=sys.stderr)
-        return 127
+    return supervise(seconds, args[2:])
 
 
 def parse_stream(path):
