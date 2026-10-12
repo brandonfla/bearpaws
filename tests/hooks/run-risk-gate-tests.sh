@@ -296,6 +296,10 @@ bashc() { # <cwd>
   gate record "$(jq -cn --arg s "$SID" --arg c "$1" \
     '{session_id:$s,cwd:$c,tool_name:"Bash",tool_input:{command:"x"}}')"
 }
+prec() { # <cwd>: PreToolUse Bash, handled by `baseline` mode
+  gate baseline "$(jq -cn --arg s "$SID" --arg c "$1" \
+    '{session_id:$s,cwd:$c,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:"x"}}')"
+}
 nbash() { [ -f "$(logfile)" ] || { echo 0; return; }; grep -cxF 'edit (bash)' "$(logfile)" || true; }
 expect_bash_edits() { # <label> <count>
   if [ "$(nbash)" = "$2" ]; then echo "OK: $1"; else fail "$1: expected $2 'edit (bash)' line(s), got $(nbash): $(cat "$(logfile)" 2>/dev/null)"; fi
@@ -398,6 +402,40 @@ if [ "$(cat "$TMP_ROOT/rc")" != 0 ]; then fail "symlinked .tree: hook exited $(c
 elif [ -e "$TMP_ROOT/symtree/target" ]; then fail "symlinked .tree: hook wrote through the symlink"
 else echo "OK: symlinked .tree is refused"; fi
 
+# PreToolUse `baseline`: take the fingerprint before the first Bash call, so a first-ever heredoc write is seen.
+R="$(mkrepo 18)"
+reset; prec "$R"; expect "baseline mode prints nothing" allow
+[ -s "$(treefile)" ] && echo "OK: baseline writes the .tree file" || fail "baseline wrote no .tree file"
+[ -e "$(logfile)" ] && fail "baseline wrote the log" || echo "OK: baseline does not touch the log"
+echo heredoc >"$R/first.py"; bashc "$R"
+expect_bash_edits "first-ever Bash call that writes a file is an edit" 1
+stop "Done."; expect "first-call Bash heredoc without receipt: block" block "risk receipt"
+
+R="$(mkrepo 19)"
+reset; bashc "$R"; touch -t 200001010000 "$(treefile)"
+before="$(cat "$(treefile)")|$(ls -lT "$(treefile)" 2>/dev/null || ls -l --time-style=full-iso "$(treefile)")"
+echo changed >"$R/a.py"; prec "$R"
+after="$(cat "$(treefile)")|$(ls -lT "$(treefile)" 2>/dev/null || ls -l --time-style=full-iso "$(treefile)")"
+[ "$before" = "$after" ] && echo "OK: baseline leaves an existing .tree untouched" || fail "baseline rewrote an existing .tree"
+bashc "$R"; expect_bash_edits "baseline did not absorb the edit: next record sees it" 1
+
+PLAIN2="$TMP_ROOT/plain2"; mkdir -p "$PLAIN2"
+reset; prec "$PLAIN2"; expect "baseline, non-git cwd: rc 0, no output" allow
+[ -e "$(treefile)" ] && fail "baseline wrote .tree outside git" || echo "OK: baseline outside git writes nothing"
+reset; prec "$TMP_ROOT/does-not-exist"; expect "baseline, missing cwd: rc 0, no output" allow
+reset; gate baseline "$(jq -cn --arg s "$SID" '{session_id:$s,tool_name:"Bash"}')"; expect "baseline, no cwd: rc 0, no output" allow
+R="$(mkrepo 20)"; reset; echo garbage >"$R/.git/HEAD"; prec "$R"; expect "baseline, corrupted .git: rc 0, no output" allow
+for bad in "../evil" "a/b" "" "$(printf 'x%.0s' {1..129})"; do
+  rc=0; printf '%s' "$(jq -cn --arg s "$bad" --arg c "$(mkrepo 21)" '{session_id:$s,cwd:$c,tool_name:"Bash"}')" \
+    | env -u COPILOT_CLI -u CURSOR_PLUGIN_ROOT -u DEVIN_PROJECT_DIR -u DEVIN_PLUGIN_ROOT -u BEARPAWS_ENFORCE \
+      CLAUDE_PLUGIN_ROOT="$REPO_ROOT" CLAUDE_PLUGIN_DATA="$TMP_ROOT/bad2/data" bash "$GATE" baseline >"$TMP_ROOT/out" 2>&1 || rc=$?
+  if [ "$rc" != 0 ] || [ -s "$TMP_ROOT/out" ]; then fail "baseline, bad session_id '$bad': rc=$rc out=$(cat "$TMP_ROOT/out")"; fi
+done
+[ -n "$(find "$TMP_ROOT/bad2" -type f 2>/dev/null)" ] && fail "baseline with a malformed session_id wrote a file" || echo "OK: baseline with a malformed session_id writes nothing"
+R="$(mkrepo 22)"; reset
+gate baseline "$(jq -cn --arg s "$SID" --arg c "$R" '{session_id:$s,cwd:$c,tool_name:"Bash"}')" BEARPAWS_ENFORCE=0
+[ -e "$(treefile)" ] && fail "baseline ignored BEARPAWS_ENFORCE=0" || echo "OK: BEARPAWS_ENFORCE=0 disables baseline"
+
 # Performance (reported, not asserted): 20 Bash record calls on a repo with 200 files.
 R="$(mkrepo 9)"
 for i in $(seq 1 200); do echo "$i" >"$R/f$i.txt"; done
@@ -416,6 +454,10 @@ t0=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0
 for i in $(seq 1 20); do bashc "$R"; done
 t1=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
 echo "PERF: 20 Bash record calls, 5000 files: mean $(( (t1 - t0) / 20 )) ms"
+t0=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
+for i in $(seq 1 20); do prec "$R"; done
+t1=$(python3 -c 'import time;print(int(time.time()*1000))' 2>/dev/null || echo 0)
+echo "PERF: 20 baseline calls with .tree present, 5000 files: mean $(( (t1 - t0) / 20 )) ms"
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures risk-gate test(s) failed"

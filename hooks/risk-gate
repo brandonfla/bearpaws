@@ -2,7 +2,7 @@
 # Risk gate for Claude Code. Blocks ending a turn with pending edits and no
 # risk receipt, and elevated-risk work marked COMPLETE without an independent
 # review dispatched after the last edit.
-# Modes: record (PostToolUse), stop (Stop). Bash edits are detected by a git tree fingerprint kept in <session_id>.tree, which accepted stops do not clear. The log holds edits not yet accepted by a receipt:
+# Modes: baseline (PreToolUse on Bash), record (PostToolUse), stop (Stop). Bash edits are detected by a git tree fingerprint kept in <session_id>.tree, which accepted stops do not clear. The log holds edits not yet accepted by a receipt:
 # a stop that allows clears it, except elevated INCOMPLETE work with no review, which stays pending (also across turns and background-agent report-backs).
 # Design: docs/bearpaws/plans/2026-10-11-risk-gate-design.md
 # tests/hooks/run-risk-gate-tests.sh pins every rule.
@@ -69,6 +69,12 @@ block() { jq -cn --arg r "$1" '{decision: "block", reason: $r}'; exit 0; }
 field() { grep -qiE "${LEAD}$1${TRAIL}:[*_\`[:space:]]*$2" <<<"$msg"; }
 
 case "$mode" in
+  baseline)
+    # PreToolUse on Bash: take the first fingerprint before the first Bash call, so that call's own edit is seen.
+    # Fast path: once $tree exists this does no git work. Prints nothing, always exits 0.
+    [ -e "$tree" ] && exit 0
+    track_tree "$(jq -r '.cwd // empty' <<<"$input")" baseline >/dev/null 2>&1
+    ;;
   record)
     tool="$(jq -r '.tool_name // empty' <<<"$input")"
     case "$tool" in

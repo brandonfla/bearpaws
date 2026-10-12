@@ -30,14 +30,15 @@ State: one log per session, holding the edits not yet accepted by a receipt, at 
 | Mode | Event | Behavior |
 |---|---|---|
 | `record` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit\|NotebookEdit\|Bash\|Agent\|Task`) | Append `edit <path>` (relative to the hook input's `cwd`) or `review` (an Agent/Task call whose `subagent_type` contains `review` at a word boundary, or whose `description` starts with `review`, case-insensitive; only code, spec, final, security, independent, quality, plan, design, or re may precede it, and the description must not be followed by fix, feedback, comment, finding, or follow; never the `prompt`). Subagent edits count too. Paths under `$HOME/.claude/`, `$HOME/.claude.json`, or `$CLAUDE_CONFIG_DIR/` (for example `~/.claude-team` when that variable is set) are Claude's own config, memory, and plan files and are not recorded. Lookalike project directories such as `~/.claude-work/` or `~/.clauderc-project/` are recorded. After every recorded tool except an Agent/Task call, the hook also logs a tree fingerprint (below). |
+| `baseline` | `PreToolUse` (matcher `Bash`) | If `<session_id>.tree` exists, exit at once with no git work. Otherwise store the current tree fingerprint there (see section 2) and print nothing, so the first Bash call's own edit is seen. Always exits 0. |
 | `stop` | `Stop` | Apply the gate below to `last_assistant_message` and the log. |
 
 **Bash recording: the tree fingerprint.** The `Bash` tool can edit files (`sed -i`, heredocs, `git apply`) without a path in the hook input, so `record` fingerprints the work tree at the input's `cwd` after every Edit, Write, MultiEdit, NotebookEdit and Bash call. It runs only when `git -C "$cwd" rev-parse --is-inside-work-tree` succeeds and `shasum` or `sha1sum` exists; otherwise, and on any git error, it records nothing and exits 0. The fingerprint is the SHA-1 of the sorted list of path, size and mtime for every file in `git ls-files -co --exclude-standard`, tracked and untracked alike. It reads neither the index nor HEAD, so `git add` and `git commit` do not change it, while a content change, a deletion or a new file does. mtime has sub-second precision where `stat` offers it: GNU `stat -c '%n %s %.9Y'`, BSD (macOS) `stat -f '%N %z %Fm'`, whole seconds as the last fallback. Paths with a component `__pycache__`, `.pytest_cache`, `node_modules`, `.mypy_cache`, `.ruff_cache` or `.venv`, and paths ending `.pyc`, are left out, so a test run is not an edit. Cost: two git calls and one batched `stat` per recorded call; about 45 ms at 200 files and 70 ms at 5000 (macOS).
 
-The latest fingerprint lives in a state file next to the log, `<session_id>.tree`, with the same owner-only and no-symlink checks. A `stop` that clears the log does not delete it, so the first Bash call of a later turn still compares against the last known tree.
+The latest fingerprint lives in a state file next to the log, `<session_id>.tree`, with the same owner-only and no-symlink checks. A `stop` that clears the log does not delete it, so the first Bash call of a later turn still compares against the last known tree. The `baseline` mode on `PreToolUse` (Bash) writes it before the session's first Bash call, which closes the first-call gap; once the file exists it costs one hook process and no git work (about 15 ms on macOS, dominated by process start).
 
 - Edit, Write, MultiEdit, NotebookEdit: log `edit <path>` as before, then store the fingerprint.
-- Bash: if the fingerprint differs from the stored one, log `edit (bash)` and store it; if it is the same, log nothing; if there is no state file, only store it as a baseline, never an edit.
+- Bash: if the fingerprint differs from the stored one, log `edit (bash)` and store it; if it is the same, log nothing; if there is no state file (only when the PreToolUse `baseline` could not write one), only store it as a baseline, never an edit.
 - `stop` never reads the `.tree` file. The sensitive-path nudge reads `(bash)` as a path and does not match it.
 
 Read the log in order. `edited` means at least one `edit` line, `edit (bash)` included. `reviewed` means a `review` line appears after the last `edit` line, so a review that predates a later edit does not count (same rule as Codex C4). A fix made through Bash after a review is an `edit (bash)`, so it needs a new review.
@@ -59,7 +60,7 @@ Sensitive-path pattern (case-insensitive, on the path): `auth|login|session|toke
 
 ### 3. `hooks/hooks.json`
 
-Add `PostToolUse` and `Stop` entries next to `SessionStart`. All call `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" risk-gate <mode>`, with `timeout: 10`. `hooks-cursor.json` and `.devin/hooks.v1.json` do not change.
+Add `PreToolUse` (matcher `Bash`, mode `baseline`), `PostToolUse` and `Stop` entries next to `SessionStart`. All call `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" risk-gate <mode>`, with `timeout: 10`. `hooks-cursor.json` and `.devin/hooks.v1.json` do not change.
 
 ### 4. Risk receipt (skill text)
 
@@ -85,7 +86,6 @@ Wording changes follow `bp:writing-skills`: first a baseline run without the rec
 - Whether an asynchronous review returned. A dispatch after the last edit is enough for the gate. The bootstrap's "not returned → INCOMPLETE" rule stays instruction-only. Upgrade path: record `SubagentStop` for reviewer agents.
 - Other harnesses. They get the receipt as instruction only.
 - Bash edits outside git work trees, or when `shasum`/`sha1sum` is missing or git fails. They are not recorded.
-- The baseline gap. The first-ever Bash call of a session only sets the baseline, so a Bash edit before any recorded tool goes unseen. Later turns are covered by the `.tree` state file, which accepted stops do not clear.
 - Files are fingerprinted by path, size and mtime, not content. A same-size edit within one mtime tick (sub-second on macOS and GNU, whole seconds on a stat without fractional support) is missed.
 - Excluded cache paths (`__pycache__`, `.pytest_cache`, `node_modules`, `.mypy_cache`, `.ruff_cache`, `.venv`, `*.pyc`) are never edits, even if an agent writes real work there.
 - The sensitive-path nudge cannot see Bash-edited paths, since `edit (bash)` carries none.
