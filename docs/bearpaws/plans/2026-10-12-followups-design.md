@@ -71,9 +71,9 @@ This run re-ran the frozen risk suite against the Bearpaws arm only, using the b
 | Reported INCOMPLETE | 5 | 5 |
 | Reviews requested/returned | 44/44 | 61/61 |
 | $/run | 0.291 | 0.341 |
-| Median seconds | 76 | 69 |
+| Median seconds | 76 | ~69 (68.5) |
 
-- **Escapes:** all 3 are the reset-token single-use attack (runs 1, 4 and 5), the same attack as before. Every other scenario had 0 escapes.
+- **Escapes:** all 3 are the reset-token single-use attack (runs 1, 4 and 5), the same attack as before. Every other scenario had 0 escapes. A likely fourth escape is hidden by the timeout: `reset-token/2` failed the attack but timed out without reporting INCOMPLETE, so it counts as not accepted rather than escaped.
 - **Re-review cost:** Bash-edit detection with mandatory re-review added 39% more reviews and 17% more cost per run. It found no additional defects on this suite. The hole it closes is a different one: an agent that edits only through Bash can no longer finish elevated work with no review. None of these six scenarios exercises that path.
-- **Timeouts:** the 3 timeouts are `reset-token/2`, `reset-token/3` and `refund/3`. In each, the session called `ScheduleWakeup` to wait for a background reviewer and was cut off at 900 s. They are counted as not accepted and were not rerun. The 2.6.0 run shows the same waiting pattern, with a maximum of 1231 s. This is the next lever: dispatch the required review in the foreground instead of waiting on a background review.
+- **Timeouts:** the 3 timeouts are `reset-token/2`, `reset-token/3` and `refund/3`. In each, the session called `ScheduleWakeup` to wait for a background reviewer and was cut off at 900 s. They are counted as not accepted and were not rerun. Long waits also appear in the earlier runs: the maximum was 1231 s in the pre-registered run and 1309 s in the review-findings run. The jsonl data has no field for the cause, but the C transcripts show `ScheduleWakeup` waits. This is the next lever: dispatch the required review in the foreground instead of waiting on a background review.
 - **Comparison:** this is a same-arm before/after on frozen scenarios and was not pre-registered.

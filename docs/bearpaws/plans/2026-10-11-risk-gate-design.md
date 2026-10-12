@@ -85,7 +85,7 @@ Wording changes follow `bp:writing-skills`: first a baseline run without the rec
 
 ### 5. What the gate does not check
 
-- Claude Code builds that predate Stop `additionalContext`. They ignore the field, so the gate prints feedback nobody reads and the stop proceeds: it fails open there. Enforcement needs a build that supports it.
+- **Claude Code before 2.1.163.** Stop `additionalContext` was added in 2.1.163. An older build either ignores the field or rejects the output as invalid hook JSON, which may surface as a hook error. Either way the stop proceeds, so the gate fails open there. Enforcement needs Claude Code 2.1.163 or later.
 - That "Pinned" and "Failing first" are true. Evals check those from tool order. The hook only checks that the receipt exists, that a review happened, and that the classification looks plausible.
 - Whether an asynchronous review returned. A dispatch after the last edit is enough for the gate. The bootstrap's "not returned → INCOMPLETE" rule stays instruction-only. Upgrade path: record `SubagentStop` for reviewer agents.
 - Other harnesses. They get the receipt as instruction only.
@@ -155,4 +155,12 @@ Reset removal (final review FM-1): the `reset` mode and the `UserPromptSubmit` h
 
 Background-path probe (2026-10-12, after the reset removal): `claude -p` with `--plugin-dir` dispatched a background general-purpose subagent (`run_in_background: true`, "Append line") to edit `notes.txt` and replied "dispatched". Stop allowed that turn, because nothing was pending yet. The subagent's report-back started a new turn, and the controller replied "all done". The Stop hook blocked it: `Stop hook feedback: This turn edited files. End with a risk receipt: Risk: routine or Risk: elevated (surface), ...`. The agent then added `Risk: routine / Verified: ... / Status: INCOMPLETE`, and the gate accepted it. Cost: $0.12. Before the change, the report-back reset would have let "all done" through unjudged (final review FM-1).
 
-Update (2026-10-12): the probes above saw `decision: "block"`. The gate now returns Stop `additionalContext` instead (section 2, Output); the transcript label changes from a hook error to hook feedback. Enforcement with the new shape is covered by fixture tests, not yet by a live probe.
+Update (2026-10-12): the probes above saw `decision: "block"`. The gate now returns Stop `additionalContext` instead (section 2, Output); the model still sees "Stop hook feedback", but no hook error notification is shown.
+
+Live probes (2026-10-12) used Claude Code 2.1.296, `claude -p` and `--plugin-dir`.
+
+- **Bash heredoc write, then "done":** the turn continued and the agent appended `Risk: routine` / `Verified:` / `Status: COMPLETE`.
+- **Edit tool, same prompt:** same result.
+- **Control, `BEARPAWS_ENFORCE=0`:** a single "done" and no continuation.
+
+The feedback text itself does not appear in stream-json output.
