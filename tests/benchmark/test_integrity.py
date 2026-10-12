@@ -521,6 +521,24 @@ class SupervisorTests(unittest.TestCase):
         summarize.kill_verified({victim.pid: summarize.process_table()[victim.pid][1]})
         self.assertEqual(victim.wait(timeout=10), -signal.SIGKILL)
 
+    def test_ps_failure_after_sigstop_still_kills_the_stopped_processes(self):
+        victim = subprocess.Popen(["sleep", "300"], start_new_session=True)
+        self.addCleanup(victim.kill)
+        real = summarize.process_table
+        tracked = {victim.pid: real()[victim.pid][1]}
+
+        def stat():
+            return subprocess.run(["ps", "-o", "stat=", "-p", str(victim.pid)], capture_output=True, text=True).stdout
+
+        def failing_after_stop():  # ps works until the victim is stopped, then fails
+            return {} if "T" in stat() else real()
+        with mock.patch.object(summarize, "process_table", failing_after_stop):
+            summarize.kill_verified(tracked)
+        try:
+            victim.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.fail("process left stopped (state %r) after ps failed mid-kill" % stat().strip())
+
     def test_unrunnable_command_exits_127_with_a_message(self):
         result = subprocess.run([*self.SUP, "5", "--", "/nonexistent/claude"], capture_output=True, text=True)
         self.assertEqual(result.returncode, 127)

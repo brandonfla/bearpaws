@@ -112,30 +112,42 @@ def track_descendants(tracked, table):
     return new
 
 
-def signal_verified(tracked, sig):
-    """Send sig to tracked pids whose current lstart still matches (a mismatch is pid reuse: skipped)."""
+def signal_verified(tracked, sig, fallback=()):
+    """Send sig to tracked pids whose current lstart still matches (a mismatch is pid reuse: skipped).
+
+    If ps fails (empty table), signal `fallback` pids instead: ones verified earlier in this kill.
+    Returns the pids signalled.
+    """
     table = process_table()
-    for pid, lstart in list(tracked.items()):
-        if pid in table and table[pid][1] == lstart:
-            try:
-                os.kill(pid, sig)
-            except (ProcessLookupError, PermissionError):
-                pass
+    if table:
+        pids = [pid for pid, lstart in tracked.items() if pid in table and table[pid][1] == lstart]
+    else:
+        pids = list(fallback)
+    for pid in pids:
+        try:
+            os.kill(pid, sig)
+        except (ProcessLookupError, PermissionError):
+            pass
+    return pids
 
 
 def kill_verified(tracked):
     """Freeze the tracked tree (SIGSTOP, up to 3 rounds, so nothing can spawn), then SIGKILL it.
 
+    Every pid we stopped was verified when stopped; if ps fails on the final read we SIGKILL
+    exactly that set rather than leave it stopped forever.
+
     ponytail: only processes seen alive during a poll are tracked. One that spawns and detaches
     (or double-forks and is reparented) between two 0.5 s polls escapes; narrow the poll or use
     cgroups/job objects if that matters.
     """
+    stopped = set()
     for _ in range(3):
         grew = track_descendants(tracked, process_table())
-        signal_verified(tracked, signal.SIGSTOP)
+        stopped.update(signal_verified(tracked, signal.SIGSTOP))
         if not grew:
             break
-    signal_verified(tracked, signal.SIGKILL)
+    signal_verified(tracked, signal.SIGKILL, fallback=stopped)
 
 
 POLL = 0.5
