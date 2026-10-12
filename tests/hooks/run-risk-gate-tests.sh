@@ -532,10 +532,20 @@ reset; edit src/authz.py; sendmsg "Re-review authz null-org fix" "Fixed it, look
 expect "SendMessage re-review summary counts" allow
 reset; edit src/authz.py; sendmsg "Fix review comments" "please review"; stop "$ELEVATED"
 expect "SendMessage 'Fix review comments' is not a review" block "independent review"
-reset; edit src/authz.py; sendmsg - "please review the diff"; stop "$ELEVATED"
+reset; edit src/authz.py; sendmsg - "Review the diff again"; stop "$ELEVATED"
 expect "SendMessage without summary is not a review" block "independent review"
 reset; edit src/authz.py; sendmsg "Status update" "please review"; stop "$ELEVATED"
 expect "SendMessage body saying review is not a review" block "independent review"
+
+sendmsg_raw() { # <tool_input JSON>
+  gate record "$(jq -cn --arg s "$SID" --argjson ti "$1" '{session_id:$s,tool_name:"SendMessage",tool_input:$ti}')"
+}
+reset; edit src/authz.py; sendmsg_raw '{"to":"main","summary":"Review complete, ready to merge","message":"done"}'; stop "$ELEVATED"
+expect "SendMessage report to main is not a review" block "independent review"
+reset; edit src/authz.py; sendmsg_raw '{"to":"reviewer","summary":{"review":1},"message":"x"}'; stop "$ELEVATED"
+expect "SendMessage object summary is not a review" block "independent review"
+reset; edit src/authz.py; sendmsg_raw '{"to":"reviewer","summary":["Review it"],"message":"x"}'; stop "$ELEVATED"
+expect "SendMessage array summary is not a review" block "independent review"
 
 # Test-only edits after a review do not restart the review requirement; the review must follow the last non-test edit.
 reset; edit src/authz.py; review; edit tests/test_authz.py; stop "$ELEVATED"
@@ -551,12 +561,16 @@ expect "test-only edits: review must follow the last edit of any kind" block "in
 R="$(mkrepo gl1)"
 reset; bashc "$R"; echo two >"$R/a.py"; editc "$R" a.py; review; echo three >"$R/a.py"; bashc "$R"
 stop "$ELEVATED"; expect "Bash edit after review is never test-only: block" block "independent review"
+reset; edit src/authz.py; review; edit /r/tests/../src/authz.py; stop "$ELEVATED"
+expect "traversal path after review is a production edit: block" block "independent review"
+reset; edit src/authz.py; review; edit spec/openapi.yaml; stop "$ELEVATED"
+expect "spec/ data file after review is a production edit: block" block "independent review"
 reset; edit tests/test_x.py; stop "Done."; expect "receipt still required after test-only edit" block "risk receipt"
 reset; edit tests/test_x.py; stop "$ROUTINE"; expect "routine receipt after test-only edit: allow" allow
 reset; edit tests/auth/test_login.py; stop "$ROUTINE"; expect "sensitive test path still nudges" block "tests/auth/test_login.py"
 # Classifier, observed through the log line.
 for row in "test|tests/x.py" "test|src/test_x.py" "test|pkg/x_test.go" "test|web/a.test.tsx" "test|a.spec.js" \
-           "test|spec/models/u_spec.rb" "test|src/FooTest.java" "test|src/__tests__/a.js" "test|a/test/b.rb" "test|a/specs/b.rb" \
+           "test|spec/models/u_spec.rb" "test|src/FooTest.java" "test|src/__tests__/a.js" "test|a/test/b.rb" "prod|a/specs/b.rb" "prod|spec/openapi.yaml" "prod|/abs/tests/x.py" "prod|tests/../src/a.py" "prod|Tests/x.py" "prod|testdata/x.py" \
            "prod|src/testing.py" "prod|src/contest.py" "prod|latest/x.py" "prod|src/attest.go"; do
   IFS='|' read -r want p <<<"$row"
   reset; edit "$p"

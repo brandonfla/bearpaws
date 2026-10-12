@@ -36,8 +36,8 @@ SENSITIVE='auth|login|session|token|passw|credential|secret|crypt|permission|acl
 # Review description: starts with "review", optionally preceded only by words from a closed list, and not followed by a fix word.
 # Shared by Agent/Task descriptions and SendMessage summaries.
 REVIEW_DESC='^\W*((code|spec|final|security|independent|quality|plan|design|re)[\s-]+)*review(ing)?\b(?!\W*(fix|feedback|comment|finding|follow))'
-# Test files: a tests/test/__tests__/spec/specs directory, or a conventional test file name. Name-only heuristic.
-TESTFILE='(^|/)(tests?|__tests__|specs?)/|(^|/)(test_[^/]*\.py|[^/]*_test\.(py|go)|[^/]*\.(test|spec)\.(jsx?|tsx?|mjs|cjs)|[^/]*_spec\.rb|[^/]*Test\.java)$'
+# Test files: a tests/test/__tests__ directory, or a conventional test file name. Name-only heuristic.
+TESTFILE='(^|/)(tests?|__tests__)/|(^|/)(test_[^/]*\.py|[^/]*_test\.(py|go)|[^/]*\.(test|spec)\.(jsx?|tsx?|mjs|cjs)|[^/]*_spec\.rb|[^/]*Test\.java)$'
 LEAD='^[[:space:]>*_#0-9.`-]*'
 TRAIL='[*_`]*'
 
@@ -108,7 +108,7 @@ case "$mode" in
         path="${path//$'\n'/ }"; path="${path//$'\r'/ }"
         if [ -n "$path" ]; then
           # edit-test: a test-file edit, which does not restart the review requirement. Bash edits are never test-only.
-          if [[ "$path" =~ $TESTFILE ]]; then printf 'edit-test %s\n' "$path" >>"$log"; else printf 'edit %s\n' "$path" >>"$log"; fi
+          if [[ "$path" != /* && "$path" != *../* && "$path" =~ $TESTFILE ]]; then printf 'edit-test %s\n' "$path" >>"$log"; else printf 'edit %s\n' "$path" >>"$log"; fi
         fi
         track_tree "$cwd" "$tool"
         ;;
@@ -116,10 +116,10 @@ case "$mode" in
         track_tree "$(jq -r '.cwd // empty' <<<"$input")" Bash
         ;;
       Agent|Task|SendMessage)
-        # Reviewer subagent_type (word-boundary "review"), or a description (SendMessage: its summary, never its
+        # Reviewer subagent_type (word-boundary "review"), or a description (SendMessage: its summary, not when addressed to main, never its
         # message) matching REVIEW_DESC. Never the prompt: an implementer's says "Self-review".
         if jq -e --arg re "$REVIEW_DESC" '.tool_input | ((.subagent_type // "" | tostring | test("\\breview"; "i"))
-                  or ((if $tool == "SendMessage" then .summary else .description end) // "" | tostring | test($re; "i")))' --arg tool "$tool" <<<"$input" >/dev/null 2>&1; then
+                  or ((if $tool == "SendMessage" then (if .to == "main" then null else .summary | strings end) else .description end) // "" | tostring | test($re; "i")))' --arg tool "$tool" <<<"$input" >/dev/null 2>&1; then
           echo review >>"$log"
         fi
         ;;
