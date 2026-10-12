@@ -38,3 +38,13 @@ Not changed: the risk gate, the sensitive-path nudge, the Red Flags table, and t
 - The risk-suite escape count is no worse than C's.
 
 Results are published as measured.
+
+## Results (2026-10-12): stopped after RED
+
+- **Routing eval with the current bootstrap** (`/tmp/bearpaws-tests/routing-eval/routine-before`): all 5 cases 3/3, including `spec-bugfix` with the new `!bp:brainstorming` check. Today's wording already routes a fully specified bug fix to TDD and verification only. Lever 2 has no RED.
+- **Live routine runs**, Bearpaws only, 7 scenarios × 3 (`/tmp/bearpaws-tests/benchmark/routine-red-80f56b7`): 21/21 accepted, $0.101 per task, 6.1 turns.
+  - Brainstorming was invoked in **0/21** runs.
+  - Onboarding was invoked in 8/21: `conventions` 3/3, `new-subsystem` 3/3, `simple-feature` 2/3. Two of those three are builds, where light mode would not apply.
+  - The most expensive scenario, `multi-file-refactor` ($0.191), touches `money.py`. The elevated rule sends it to review, which is by design.
+- **Decision:** with an expected saving of about $0.004 per task, changing tuned skill text is not justified. D stops here with no skill change. Two model-free improvements are kept for later use: per-arm skill counts in the benchmark summary, and forbidden-skill checks in the routing eval.
+- **Next:** the escaped-defect benchmark (C) found a larger lever. Bearpaws' reviewer caught defects that the agent then shipped as "out of scope". See `docs/benchmarks/2026-10-12-escaped-defects.md`.
