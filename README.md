@@ -1,12 +1,12 @@
-# BearPaws
+# Bearpaws
 
 **Adaptive engineering discipline for coding agents.**
 
-BearPaws separates difficulty from danger. Elevated-risk work gets more proof: pinned behavior, a failing test first, an independent review, and verification evidence. Routine work stays light, however large it is. In Claude Code, the risk floor is enforced by a hook, not just requested.
+Bearpaws separates difficulty from danger. Elevated-risk work gets more proof: pinned behavior, a failing test first, an independent review, and verification evidence. Routine work stays light, however large it is. In Claude Code, the risk floor is enforced by a hook, not just requested.
 
 ## Difficulty is not danger
 
-A one-line change to authentication logic is simple to write but carries high risk. A 500-line UI refactor is complex but carries low risk. BearPaws treats complexity and risk as separate axes:
+A one-line change to authentication logic is simple to write but carries high risk. A 500-line UI refactor is complex but carries low risk. Bearpaws treats complexity and risk as separate axes:
 
 |  | **Low risk** | **High risk** |
 |---|---|---|
@@ -24,7 +24,7 @@ The deciding factor is **blast radius, not code size**:
 | Add a database migration | Medium | High | Elevated: data migration |
 | Change payment rounding | Low | High | Elevated: money |
 
-Risk has two levels: routine and elevated. BearPaws does not grade it any finer. When the classification is arguable, the change is elevated.
+Risk has two levels: routine and elevated. Bearpaws does not grade it any finer. When the classification is arguable, the change is elevated.
 
 ## Show me
 
@@ -52,11 +52,11 @@ Set `BEARPAWS_ENFORCE=0` to turn it off; it needs `jq` and does nothing without 
 
 The [escaped-defect benchmark](docs/benchmarks/2026-10-12-escaped-defects.md) was pre-registered: six elevated-risk tasks with hidden attack tests, 5 runs per task per arm, Sonnet in Claude Code.
 
-- **Escaped defects:** BearPaws 9/30, no plugin 12/30, Superpowers 6.4.2 12/30. The difference is **not statistically significant** (Fisher exact p = 0.59). Counting one run that ended INCOMPLETE with the defect still present, BearPaws' figure is 10/30.
-- BearPaws eliminated the negative-refund defect (0/5 against 5/5 in each other arm). That comparison is post hoc and uncorrected, and rests on one attack. It was no better on reset tokens and slightly worse, within noise, on SQL sort injection and tenant authorization.
-- In 7 of 9 BearPaws escapes, its own reviewer flagged the defect and the agent still shipped `Status: COMPLETE`. That motivated the review-findings rule: a same-risk defect the review finds in the code you changed is part of the fix.
+- **Escaped defects:** Bearpaws 9/30, no plugin 12/30, Superpowers 6.4.2 12/30. The difference is **not statistically significant** (Fisher exact p = 0.59). Counting one run that ended INCOMPLETE with the defect still present, Bearpaws' figure is 10/30.
+- Bearpaws eliminated the negative-refund defect (0/5 against 5/5 in each other arm). That comparison is post hoc and uncorrected, and rests on one attack. It was no better on reset tokens and slightly worse, within noise, on SQL sort injection and tenant authorization.
+- In 7 of 9 Bearpaws escapes, its own reviewer flagged the defect and the agent still shipped `Status: COMPLETE`. That motivated the review-findings rule: a same-risk defect the review finds in the code you changed is part of the fix.
 <!-- review-findings result: filled in after the GREEN run -->
-- **Cost:** on these risky tasks, BearPaws cost about 2.4× Superpowers per task (and 4.7× no plugin); that includes a review on every run. On routine tasks it is about level with Superpowers: $0.098 against $0.096 per task in the [2026-09-30 run](docs/benchmarks/2026-09-30-three-way.md).
+- **Cost:** on these risky tasks, Bearpaws cost about 2.4× Superpowers per task (and 4.7× no plugin); that includes a review on every run. On routine tasks it is about level with Superpowers: $0.098 against $0.096 per task in the [2026-09-30 run](docs/benchmarks/2026-09-30-three-way.md).
 
 Small samples, Python stdlib scenarios, one model. Read the write-ups' limits before quoting these numbers.
 
@@ -69,7 +69,7 @@ claude plugin marketplace add brandonfla/bearpaws
 claude plugin install bp@bearpaws
 ```
 
-For a local checkout, run `claude --plugin-dir /path/to/bearpaws`. For non-trivial work we recommend `/model opusplan`: Opus plans in native Plan Mode and Sonnet executes, and BearPaws never switches models itself.
+For a local checkout, run `claude --plugin-dir /path/to/bearpaws`. For non-trivial work we recommend `/model opusplan`: Opus plans in native Plan Mode and Sonnet executes, and Bearpaws never switches models itself.
 
 **Google Antigravity IDE:** clone, install, then restart Antigravity.
 
@@ -120,9 +120,9 @@ A fully specified small fix goes straight to TDD and verification; plans are for
 | `bp:using-git-worktrees` | Process | Isolate feature work in git worktrees |
 | `bp:writing-skills` | Process | Write and test skills with RED/GREEN evals |
 
-## BearPaws vs Superpowers
+## Bearpaws vs Superpowers
 
-| | Superpowers 6.4.2 | BearPaws |
+| | Superpowers 6.4.2 | Bearpaws |
 |---|---|---|
 | Workflow scaling | The same rigorous workflow for every task | Scaled by complexity × risk |
 | Elevated-risk floor | No separate risk tier | Pinned behavior, failing test first, narrow diff, assumptions, independent review |
@@ -131,7 +131,7 @@ A fully specified small fix goes straight to TDD and verification; plans are for
 | Cost on risky work (risk benchmark) | $0.092 per task | $0.219 per task, about 2.4× |
 | Cost on routine work (2026-09-30 run) | $0.096 per task | $0.098 per task |
 
-BearPaws began as a fork of [Superpowers](https://github.com/obra/superpowers), and its engineering discipline comes from there.
+Bearpaws began as a fork of [Superpowers](https://github.com/obra/superpowers), and its engineering discipline comes from there.
 
 ## Support status
 
@@ -154,7 +154,7 @@ See [docs/agent-support.md](docs/agent-support.md) for the support policy and th
 
 ## Attribution
 
-BearPaws originated as a fork of **[superpowers](https://github.com/obra/superpowers)** v5.0.7 by Jesse Vincent and contributors, released under the MIT license. The MIT terms and upstream copyright are preserved in [LICENSE](LICENSE); BearPaws now develops on its own line and is not affiliated with or endorsed by the superpowers project.
+Bearpaws originated as a fork of **[superpowers](https://github.com/obra/superpowers)** v5.0.7 by Jesse Vincent and contributors, released under the MIT license. The MIT terms and upstream copyright are preserved in [LICENSE](LICENSE); Bearpaws now develops on its own line and is not affiliated with or endorsed by the superpowers project.
 
 ## License
 

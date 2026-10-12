@@ -50,7 +50,7 @@ cat << 'EOF' > "$WORK/.antigravity/plugin.json"
 }
 EOF
 cat << 'EOF' > "$WORK/.antigravity/rules/bearpaws.md"
-# BearPaws
+# Bearpaws
 @../skills/using-bearpaws/SKILL.md
 EOF
 cat << 'EOF' > "$WORK/agents/code-reviewer.md"
