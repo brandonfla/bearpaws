@@ -3,7 +3,7 @@
 
 Record:    summarize.py --record --scenario S --arm A --run N --stream F --accepted true ...
 Summarize: summarize.py results.jsonl [more.jsonl ...]
-Supervise: summarize.py --supervise SECONDS -- argv...   (exit 124 on timeout; kills the process group)
+Supervise: summarize.py --supervise SECONDS -- argv...   (exit 124 on timeout; kills the process tree)
 """
 
 import argparse
@@ -80,33 +80,92 @@ sys.exit(bad)
 '''
 
 
+def descendants(root):
+    """Pids below root (any session), from `ps -A -o pid=,ppid=` (BSD and GNU). Empty if ps fails."""
+    try:
+        out = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True).stdout
+    except OSError:
+        return []
+    kids = defaultdict(list)
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and all(p.isdigit() for p in parts):
+            kids[int(parts[1])].append(int(parts[0]))
+    found, todo = [], [root]
+    while todo:
+        for pid in kids.get(todo.pop(), []):
+            found.append(pid)
+            todo.append(pid)
+    return found
+
+
+def kill_tree(child_pid, known=()):
+    """SIGKILL every descendant (including setsid escapees) and the whole process group.
+
+    ponytail: a process that double-forks and is reparented to init/launchd before this runs, and
+    also called setsid, is unreachable; walking ps from child_pid cannot find it.
+    """
+    for pid in [*known, *descendants(child_pid)]:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    try:
+        os.killpg(child_pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
 def supervise(seconds, argv):
     """Run argv in its own process group with a wall-clock limit; exit 124 on timeout.
 
     stdout/stderr are inherited, so run.sh's pipes into stream.jsonl/stderr.txt are unchanged. The
-    whole group is killed, so agent-spawned background loops cannot outlive the session.
+    whole tree is killed on every exit path (timeout, normal exit, SIGINT/SIGTERM/SIGHUP), so
+    agent-spawned background loops cannot outlive the session or hold the pipes open.
     """
     child = subprocess.Popen(argv, start_new_session=True)
+    seen = []
+
+    def on_signal(signum, _frame):
+        raise SystemExit(128 + signum)
+    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, on_signal)
     try:
-        code = child.wait(timeout=seconds)
-    except subprocess.TimeoutExpired:
-        for sig, grace in ((signal.SIGTERM, 10), (signal.SIGKILL, None)):
+        try:
+            code = child.wait(timeout=seconds)
+        except subprocess.TimeoutExpired:
+            seen = descendants(child.pid)
             try:
-                os.killpg(child.pid, sig)
+                os.killpg(child.pid, signal.SIGTERM)
             except ProcessLookupError:
-                break
+                pass
             try:
-                child.wait(timeout=grace)
-                break
+                child.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 pass
-        # SIGTERM may only stop the leader; make sure stragglers in the group are gone.
-        try:
-            os.killpg(child.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        return 124
-    return code if code >= 0 else 128 - code
+            return 124
+        return code if code >= 0 else 128 - code
+    finally:
+        kill_tree(child.pid, seen)
+        child.poll()
+
+
+SUPERVISE_USAGE = "usage: summarize.py --supervise SECONDS -- COMMAND [ARG...]   (SECONDS > 0)"
+
+
+def supervise_main(args):
+    try:
+        seconds = float(args[0])
+        if not (0 < seconds < float("inf")) or args[1] != "--" or len(args) < 3:
+            raise ValueError
+    except (ValueError, IndexError):
+        print(SUPERVISE_USAGE, file=sys.stderr)
+        return 2
+    try:
+        return supervise(seconds, args[2:])
+    except OSError as e:
+        print(f"supervise: cannot run {args[2]}: {e}", file=sys.stderr)
+        return 127
 
 
 def parse_stream(path):
@@ -379,7 +438,7 @@ def summarize(paths):
 
 def main():
     if sys.argv[1:2] == ["--supervise"]:  # --supervise SECONDS -- argv...
-        sys.exit(supervise(float(sys.argv[2]), sys.argv[4:]))
+        sys.exit(supervise_main(sys.argv[2:]))
     parser = argparse.ArgumentParser()
     parser.add_argument("--record", action="store_true")
     parser.add_argument("--scenario")

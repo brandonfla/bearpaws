@@ -5,6 +5,7 @@ import json
 import pathlib
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -429,6 +430,76 @@ class SharedCheckerTests(unittest.TestCase):
         self.assertNotIn("pwned", files)
 
 
+def wait_gone(pid, seconds=5):
+    """True once pid no longer exists; kills it and returns False if it outlives `seconds`."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.1)
+    try:
+        os.kill(pid, 9)
+    except ProcessLookupError:
+        pass
+    return False
+
+
+class SupervisorTests(unittest.TestCase):
+    SUP = [sys.executable, "-B", summarize.__file__, "--supervise"]
+    BG = "sleep 300 & echo $! > {pid}; "
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.pidfile = pathlib.Path(self.tmp.name) / "bg.pid"
+
+    def bgpid(self):
+        for _ in range(50):
+            if self.pidfile.exists() and self.pidfile.read_text().strip():
+                return int(self.pidfile.read_text())
+            time.sleep(0.1)
+        self.fail("background process never started")
+
+    def test_sigterm_to_the_supervisor_leaves_no_descendants(self):
+        sup = subprocess.Popen([*self.SUP, "60", "--", "bash", "-c", self.BG.format(pid=self.pidfile) + "sleep 300"])
+        pid = self.bgpid()
+        sup.send_signal(signal.SIGTERM)
+        self.assertEqual(sup.wait(timeout=15), 128 + signal.SIGTERM)
+        self.assertTrue(wait_gone(pid), "background process survived SIGTERM to the supervisor")
+
+    def test_normal_exit_still_kills_background_holding_stdout(self):
+        start = time.monotonic()
+        try:
+            result = subprocess.run([*self.SUP, "60", "--", "bash", "-c", self.BG.format(pid=self.pidfile) + "exit 0"],
+                                    capture_output=True, text=True, timeout=8)
+        except subprocess.TimeoutExpired:
+            wait_gone(self.bgpid(), 0)
+            self.fail("run hung on a background process holding stdout")
+        self.assertEqual(result.returncode, 0)
+        self.assertLess(time.monotonic() - start, 8)
+        self.assertTrue(wait_gone(self.bgpid()), "background process survived a normal exit")
+
+    def test_setsid_descendant_is_killed_on_timeout(self):
+        code = ("import subprocess, sys, time\n"
+                f"p = subprocess.Popen(['sleep', '300'], start_new_session=True)\n"
+                f"open({str(self.pidfile)!r}, 'w').write(str(p.pid))\n"
+                "time.sleep(60)\n")
+        result = subprocess.run([*self.SUP, "1", "--", sys.executable, "-c", code], timeout=40)
+        self.assertEqual(result.returncode, 124)
+        self.assertTrue(wait_gone(self.bgpid()), "setsid descendant survived the timeout")
+
+    def test_bad_arguments_print_usage_not_a_traceback(self):
+        for args in (["abc", "--", "true"], ["0", "--", "true"], ["-5", "--", "true"], ["nan", "--", "true"],
+                     ["5"], ["5", "--"], []):
+            with self.subTest(args=args):
+                result = subprocess.run([*self.SUP, *args], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("usage", result.stderr.lower())
+                self.assertNotIn("Traceback", result.stderr)
+
+
 class RunnerTests(unittest.TestCase):
     def run_fake(self, body, unisolated=True, repeat=False, scenario="small-bug", prepare=None, plant=None, extra=()):
         with tempfile.TemporaryDirectory() as temp:
@@ -653,27 +724,44 @@ print(json.dumps({"type":"result", "subtype":"success", "is_error":False, "total
         self.assertEqual(row.get("cli_exit_code"), 7, row["_stderr"])
         self.assertFalse(row["session_ok"])
 
-    def test_session_timeout_kills_the_whole_process_group(self):
-        body = ('import subprocess, time\n'
-                'grand = subprocess.Popen(["bash", "-c", "while true; do sleep 300; done"])\n'
-                'print(json.dumps({"type":"system", "grandchild": grand.pid}), flush=True)\n'
-                'time.sleep(60)\n')
+    TIMEOUT_BODY = ('import subprocess, time\n'
+                    'grand = subprocess.Popen(["bash", "-c", "while true; do sleep 300; done"])\n'
+                    'away = subprocess.Popen(["sleep", "300"], start_new_session=True)\n'
+                    'print(json.dumps({"type":"system", "grandchild": grand.pid, "setsid": away.pid}), flush=True)\n'
+                    'time.sleep(60)\n')
+
+    def check_timeout_kills_tree(self, **kwargs):
         start = time.monotonic()
-        row = self.run_fake(body, extra=("--session-timeout", "2"))
+        row = self.run_fake(self.TIMEOUT_BODY, extra=("--session-timeout", "2"), **kwargs)
         self.assertLess(time.monotonic() - start, 40)
         self.assertIs(row["timed_out"], True, row["_stderr"])
         self.assertIs(row["accepted"], False)
         self.assertEqual(row["cli_exit_code"], 124)
-        pid = next(json.loads(l)["grandchild"] for l in row["_stream"].splitlines() if "grandchild" in l)
-        for _ in range(50):
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                break
-            time.sleep(0.1)
-        else:
-            os.kill(pid, 9)
-            self.fail("grandchild survived the session timeout")
+        info = next(json.loads(l) for l in row["_stream"].splitlines() if "grandchild" in l)
+        for name in ("grandchild", "setsid"):
+            self.assertTrue(wait_gone(info[name]), f"{name} survived the session timeout")
+
+    def test_session_timeout_kills_the_whole_process_group(self):
+        self.check_timeout_kills_tree()
+
+    @unittest.skipUnless(os.environ.get("BENCH_TEST_SANDBOX") == "1", "opt-in native macOS isolation probe")
+    def test_native_session_timeout_kills_the_whole_process_tree(self):
+        self.check_timeout_kills_tree(unisolated=False)
+
+    def test_child_exiting_124_on_its_own_is_not_a_timeout(self):
+        row = self.run_fake('print(json.dumps({"type":"result", "subtype":"success", "is_error":False, "result":"Fixed."}))\nsys.exit(124)\n')
+        self.assertEqual(row["cli_exit_code"], 124)
+        self.assertIs(row["timed_out"], False)
+
+    def test_invalid_session_timeout_is_refused(self):
+        for value in ("abc", "0", "-3", "1.5", ""):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as temp:
+                bench = pathlib.Path(temp) / "tests" / "benchmark"
+                shutil.copytree(pathlib.Path(__file__).parent, bench, ignore=shutil.ignore_patterns("__pycache__"))
+                result = subprocess.run(["bash", str(bench / "run.sh"), "--session-timeout", value, "--allow-unisolated",
+                                         "--out", str(pathlib.Path(temp) / "out")], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("session-timeout", result.stderr)
 
     def test_fast_run_is_not_timed_out(self):
         row = self.run_fake('print(json.dumps({"type":"result", "subtype":"success", "is_error":False, "result":"Fixed."}))\n')

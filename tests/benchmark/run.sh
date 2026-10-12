@@ -60,6 +60,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+[[ "$SESSION_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || { echo "--session-timeout must be a positive integer (seconds), got: $SESSION_TIMEOUT" >&2; exit 2; }
+
 if [[ "$LIST" == true ]]; then printf '%s\n' $SCENARIOS; exit 0; fi
 if [[ -z "${SCENARIOS//[[:space:]]/}" ]]; then echo "no scenarios selected" >&2; exit 2; fi
 
@@ -71,7 +73,7 @@ elif [[ "$(uname -s)" != Darwin || ! -x /usr/bin/sandbox-exec ]]; then
     exit 1
 fi
 
-# One claude -p session under a wall-clock supervisor (exit 124 = timed out, whole process group killed);
+# One claude -p session under a wall-clock supervisor (exit 124 after >= SESSION_TIMEOUT s = timed out; whole process tree killed);
 # appends to <rdir>/stream.jsonl. Uses plugin_args from the caller.
 session() {
     local work="$1" prompt="$2" rdir="$3"; shift 3
@@ -172,7 +174,7 @@ run_one() {
         --scenario "$scenario" --arm "$arm" --run "$run" \
         --stream "$rdir/stream.jsonl" --accepted "$accept_ok" \
         --accept-log "$rdir/accept.txt" --visible-ok "$visible_ok" \
-        --cli-exit-code "$cli_exit_code" --timed-out "$([[ $cli_exit_code -eq 124 ]] && echo true || echo false)" --fixture-integrity "$fixture_integrity" \
+        --cli-exit-code "$cli_exit_code" --timed-out "$([[ $cli_exit_code -eq 124 && $((end - start)) -ge $SESSION_TIMEOUT ]] && echo true || echo false)" --fixture-integrity "$fixture_integrity" \
         --checker-isolation "$CHECKER_ISOLATION" --attack-ok "$attack_ok" \
         --elevated "$([ -f "$sdir/elevated" ] && echo true || echo false)" \
         --seconds $((end - start)) --tests-touched "$tests_touched" \
